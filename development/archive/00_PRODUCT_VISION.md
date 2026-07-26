@@ -1,3 +1,11 @@
+> **STATUS: SUPERSEDED** — replaced by `development/product/PRODUCT_VISION.md` and `development/product/PRODUCT_PHILOSOPHY.md`.
+>
+> Retained for historical reasoning. **Do not use for new implementation.**
+>
+> Superseded: 2026-07-26. Reason: Cron-centric product framing replaced by the standalone general-purpose positioning of PR #7. Differentiators and the cron-transformation thesis survive in `development/future/DEFERRED_CAPABILITIES.md` (Phase 2 generation) and ADR 0018.
+
+---
+
 # Product Vision
 
 ## Product statement

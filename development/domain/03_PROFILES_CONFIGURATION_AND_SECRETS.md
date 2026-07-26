@@ -1,5 +1,8 @@
 # Profiles, Configuration Resolution, and Secrets
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Purpose
 
 TaskControl must allow operational configuration to be reused across tasks, users, applications, environments, targets, and organisations without embedding mutable values in commands or exposing secrets.

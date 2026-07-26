@@ -1,5 +1,8 @@
 # AI Engineering Playbook
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 This playbook governs Claude, Codex, ChatGPT, and other coding agents contributing to TaskControl.
 
 ## Before coding

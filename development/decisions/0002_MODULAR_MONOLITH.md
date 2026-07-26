@@ -1,5 +1,7 @@
 # ADR 0002: Modular Monolith as the Initial Architecture
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
 - Status: Accepted
 - Date: 2026-07-26
 

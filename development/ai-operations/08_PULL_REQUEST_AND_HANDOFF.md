@@ -1,5 +1,8 @@
 # Pull Request and Handoff Playbook
 
+- Document level: **3 — Specifications**
+- Lifecycle state: Canonical
+
 ## Objective
 
 Present changes so another engineer can understand the intent, inspect the risk, reproduce verification, and continue the work without hidden context.

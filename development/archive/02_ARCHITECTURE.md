@@ -1,3 +1,11 @@
+> **STATUS: SUPERSEDED** — replaced by `development/architecture/ARCHITECTURE_OVERVIEW.md`.
+>
+> Retained for historical reasoning. **Do not use for new implementation.**
+>
+> Superseded: 2026-07-26. Reason: Content merged forward and reconciled with ADR 0015, ADR 0016, and ADR 0018. The local-first topology now describes the internal scheduler; the cron topology moved to Phase 2.
+
+---
+
 # Reference Architecture
 
 ## Architectural style

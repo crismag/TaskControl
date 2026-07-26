@@ -1,5 +1,8 @@
 # Schedules, Triggers, Calendars, and Run Conditions
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Purpose
 
 This domain determines when a task is nominally due and whether a particular trigger occurrence is permitted to become an execution.

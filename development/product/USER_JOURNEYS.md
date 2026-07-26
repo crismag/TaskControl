@@ -1,10 +1,20 @@
-# Use Cases and User Journeys
+# User Journeys
+
+- Document level: **0 — Identity**
+- Governed by: `PRODUCT_SCOPE.md`, `PRODUCT_ROADMAP.md`
+- Related: `USERS_AND_USE_CASES.md` (who), this document (what they do), ADR 0018 (ordering)
 
 ## Purpose
 
-This document grounds TaskControl in real operational journeys. Claude, Codex, and human contributors should use these examples to test whether proposed abstractions are useful rather than merely elegant.
+This document grounds TaskControl in real operational journeys. Contributors and coding agents use these examples to test whether a proposed abstraction is useful rather than merely elegant.
 
-## Journey 1: Personal scheduled task
+## How to read the phase markers
+
+Each journey carries the phase in which it becomes deliverable. A journey marked Phase 2 or later is **not** Phase 1 scope; it constrains the design so that the capability remains reachable, and its supporting capability is registered in `DEFERRED_CAPABILITIES.md`.
+
+Phase 1 journeys: 1, 2, 3, 6, 7, 8, 9, 13, 14. Every feature proposal should be tested against at least one Phase 1 journey plus Journey 13.
+
+## Journey 1: Personal scheduled task — **Phase 1**
 
 A developer wants a Python report to run every weekday at 08:00 on a Linux workstation.
 
@@ -14,15 +24,17 @@ Expected flow:
 2. Select the Python execution adapter.
 3. Select the script and arguments.
 4. Define a weekday schedule at 08:00 in the local time zone.
-5. Preview the generated execution package and cron artefact.
-6. Run a validation and test execution.
-7. Install the deployment locally.
+5. Preview the next scheduled runs and the resolved runtime configuration.
+6. Run a validation and a manual test execution.
+7. Enable the schedule so TaskControl runs it.
 8. View execution history and logs.
-9. Disable, update, rollback, or remove the deployment.
+9. Disable, update, or archive the task.
 
 Minimum value: TaskControl must make this easier and safer than hand-editing crontab while retaining transparency.
 
-## Journey 2: Existing shell script with profile guards
+In Phase 2 this journey gains an alternative ending: generate a cron artefact, preview the deployment plan, and hand execution to the host scheduler.
+
+## Journey 2: Existing shell script with profile guards — **Phase 1**
 
 An operations engineer has an established shell script that currently sources a shared profile and calls helper functions such as `ifholiday` before doing work.
 
@@ -35,7 +47,7 @@ Expected flow:
 5. Preserve the original script as the work implementation while moving cross-cutting operational behaviour into TaskControl.
 6. Record `SKIPPED_CALENDAR_CLOSED` explicitly rather than relying on a silent early exit.
 
-## Journey 3: Production file delivery
+## Journey 3: Production file delivery — **Phase 1**
 
 A task generates a report that must exist by 06:30.
 
@@ -50,7 +62,7 @@ The process returning zero is insufficient. TaskControl should support:
 - notification if the expected outcome is not satisfied;
 - separate process and outcome status.
 
-## Journey 4: Multi-host deployment
+## Journey 4: Multi-host deployment — **Phase 3**
 
 An administrator manages the same task on ten Linux hosts.
 
@@ -67,7 +79,7 @@ Expected capabilities:
 - detect drift after deployment;
 - roll back to a previous revision.
 
-## Journey 5: Mixed scheduler platforms
+## Journey 5: Mixed scheduler platforms — **Phase 2**
 
 An organisation needs comparable operations on Linux cron, Linux systemd, Kubernetes, and Windows.
 
@@ -75,7 +87,7 @@ The Task definition should remain stable. Platform-specific Scheduler Adapters g
 
 Example: a scheduler that cannot express a complex calendar condition should generate a frequent trigger plus a TaskControl runtime guard rather than dropping the condition.
 
-## Journey 6: Exchange calendar operation
+## Journey 6: Exchange calendar operation — **Phase 1**
 
 A market-data task runs according to the business calendar of a particular exchange.
 
@@ -90,13 +102,13 @@ Requirements:
 - explainable evaluation output;
 - ability to test a historical or future date.
 
-## Journey 7: Maintenance switch
+## Journey 7: Maintenance switch — **Phase 1**
 
 An operator needs to stop a family of tasks without editing each schedule.
 
 TaskControl should allow a Runtime Switch or inherited Run Condition at an application, environment, host group, or task level. Every skipped execution must identify the switch, its resolved value, origin, and reason.
 
-## Journey 8: Dependency-aware execution
+## Journey 8: Dependency-aware execution — **Phase 1**
 
 A downstream task should run only when a required upstream operation has completed successfully and its output remains fresh.
 
@@ -110,7 +122,7 @@ The first version may support simple dependency checks without becoming a full D
 
 Avoid turning TaskControl into a general-purpose data pipeline orchestrator unless later product decisions explicitly expand the scope.
 
-## Journey 9: Approval-controlled production deployment
+## Journey 9: Approval-controlled production deployment — **Phase 1**
 
 A developer edits a task used in production.
 
@@ -128,13 +140,13 @@ Expected lifecycle:
 
 Approval is attached to a specific plan or revision, not to an ambiguous mutable task.
 
-## Journey 10: Disconnected site
+## Journey 10: Disconnected site — **Phase 3**
 
 A remote site may temporarily lose connection to the central control plane.
 
 Future agents should continue executing already deployed tasks, preserve local history, and synchronise results when connectivity returns. The initial implementation need not deliver this feature, but protocols and identifiers should not make it impossible.
 
-## Journey 11: Monitoring integration
+## Journey 11: Monitoring integration — **Phase 2**
 
 An enterprise already uses Nagios or Prometheus.
 
@@ -147,7 +159,7 @@ TaskControl should not require immediate replacement. It should be able to:
 - preserve internal execution records;
 - avoid claiming success solely because an external monitor is configured.
 
-## Journey 12: Template and task collection
+## Journey 12: Template and task collection — **Phase 2**
 
 A team maintains many related scheduled tasks.
 
@@ -163,7 +175,7 @@ They should be able to use:
 
 Templates should reduce repetition without hiding resolved values.
 
-## Journey 13: Failure investigation
+## Journey 13: Failure investigation — **Phase 1**
 
 An operator sees that a task did not deliver an expected report.
 
@@ -181,11 +193,11 @@ The interface should answer, in order:
 10. Which notifications were sent?
 11. Which task and deployment revisions were active?
 
-## Journey 14: Safe deletion
+## Journey 14: Safe deletion — **Phase 1**
 
 Removing a task definition must not silently leave deployed artefacts behind. TaskControl should show active deployments and require an explicit decision to retire, uninstall, archive, or preserve them.
 
-## Journey 15: Import and adoption
+## Journey 15: Import and adoption — **Phase 2**
 
 A user has existing crontabs.
 

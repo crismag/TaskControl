@@ -1,3 +1,11 @@
+> **STATUS: SUPERSEDED** — replaced by ADR 0015, `development/engineering/repository/10_REPOSITORY_STRUCTURE.md`, and `development/architecture/ARCHITECTURE_OVERVIEW.md`.
+>
+> Retained for historical reasoning. **Do not use for new implementation.**
+>
+> Superseded: 2026-07-26. Reason: Proposed one of four competing repository layouts, resolved by ADR 0015. Stack list merged into the architecture overview; CLI command set into the implementation blueprint.
+
+---
+
 # Technology and Repository Structure
 
 ## Initial stack

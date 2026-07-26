@@ -1,5 +1,8 @@
 # Engineering Laws
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 These laws are default constraints, not suggestions.
 
 ## 1. Architecture is not sacrificed for convenience

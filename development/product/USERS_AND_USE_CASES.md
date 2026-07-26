@@ -1,5 +1,8 @@
 # Users and Use Cases
 
+- Document level: **0 — Identity**
+- Lifecycle state: Canonical
+
 ## Primary users
 
 - Individual developers and administrators running recurring or ad hoc automation.

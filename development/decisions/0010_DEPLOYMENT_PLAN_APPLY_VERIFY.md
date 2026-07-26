@@ -1,5 +1,7 @@
 # ADR 0010: Plan-Apply-Verify Deployment Model
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
 - Status: Accepted
 - Date: 2026-07-26
 

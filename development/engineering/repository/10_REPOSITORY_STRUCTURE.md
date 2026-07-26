@@ -1,5 +1,8 @@
 # Repository Structure
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 The repository should make ownership and dependency direction visible.
 
 ## Recommended top-level shape

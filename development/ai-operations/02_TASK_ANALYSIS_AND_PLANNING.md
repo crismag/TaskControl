@@ -1,5 +1,8 @@
 # Task Analysis and Planning Playbook
 
+- Document level: **3 — Specifications**
+- Lifecycle state: Canonical
+
 ## Objective
 
 Convert a feature request, defect, maintenance task, or research result into bounded, reviewable engineering work.

@@ -1,3 +1,11 @@
+> **STATUS: SUPERSEDED** — replaced by `development/product/PRODUCT_ROADMAP.md` (phases) and `development/10_IMPLEMENTATION_BLUEPRINT.md` (waves).
+>
+> Retained for historical reasoning. **Do not use for new implementation.**
+>
+> Superseded: 2026-07-26. Reason: Waves 0-10 were one of three competing delivery partitions. Wave 4-10 capability content is preserved in `development/future/DEFERRED_CAPABILITIES.md`. Wave ordering superseded by ADR 0018.
+
+---
+
 # Delivery Roadmap
 
 ## Wave 0 — Repository foundation

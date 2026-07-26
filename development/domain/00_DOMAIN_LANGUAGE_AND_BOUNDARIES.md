@@ -1,5 +1,8 @@
 # Domain Language and Boundaries
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Objective
 
 TaskControl must use a precise ubiquitous language across code, API, CLI, UI, documentation, tests, and operational logs. Similar-sounding concepts are not interchangeable.

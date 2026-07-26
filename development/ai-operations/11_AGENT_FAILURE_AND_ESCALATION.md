@@ -1,5 +1,8 @@
 # Agent Failure and Escalation Playbook
 
+- Document level: **3 — Specifications**
+- Lifecycle state: Canonical
+
 ## Objective
 
 Define how an AI engineering agent responds when it cannot complete work safely, accurately, or within its available authority.

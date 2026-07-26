@@ -1,5 +1,7 @@
 # ADR 0008: Separate Execution, Attempt, and Outcome
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
 - Status: Accepted
 - Date: 2026-07-26
 

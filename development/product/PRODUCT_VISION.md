@@ -1,5 +1,8 @@
 # Product Vision
 
+- Document level: **0 — Identity**
+- Lifecycle state: Canonical
+
 ## Mission
 
 Make automated work easy to define, reliable to execute, simple to observe, and safe to operate.

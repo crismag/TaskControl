@@ -1,5 +1,7 @@
 # ADR 0005: SQLAlchemy and Alembic for Persistence
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
 - Status: Accepted
 - Date: 2026-07-26
 

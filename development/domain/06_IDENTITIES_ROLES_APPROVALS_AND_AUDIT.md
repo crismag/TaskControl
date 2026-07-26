@@ -1,5 +1,8 @@
 # Identities, Roles, Approvals, and Audit
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Purpose
 
 TaskControl changes operational systems and runs arbitrary user-defined actions. Governance is therefore part of the core domain, not a later user-interface enhancement.

@@ -1,3 +1,11 @@
+> **STATUS: SUPERSEDED** — replaced by `development/prompts/IMPLEMENTATION_PROMPT.md`.
+>
+> Retained for historical reasoning. **Do not use for new implementation.**
+>
+> Superseded: 2026-07-26. Reason: Instructed an agent to build the entire application including the web UI in one pass, contradicting both the wave roadmap and the Phase 1 scope. Its status list was one of three incompatible outcome vocabularies, resolved by ADR 0016.
+
+---
+
 # Full Application Generation Prompt
 
 Use this prompt with Claude Code, Claude, Codex, or another repository-capable coding agent after giving it access to the entire TaskControl repository.

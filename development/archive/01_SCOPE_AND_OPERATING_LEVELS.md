@@ -1,3 +1,11 @@
+> **STATUS: SUPERSEDED** — replaced by `development/product/PRODUCT_SCOPE.md` and `development/product/PRODUCT_ROADMAP.md`.
+>
+> Retained for historical reasoning. **Do not use for new implementation.**
+>
+> Superseded: 2026-07-26. Reason: Operating Levels 1-5 were one of three competing delivery partitions. Level 1-2 content is now Phase 1 scope; Levels 2-5 capability lists are preserved in `development/future/DEFERRED_CAPABILITIES.md`. The cross-level invariant model is now `development/domain/`.
+
+---
+
 # Scope and Operating Levels
 
 TaskControl must support progressive operating levels without creating unrelated products or incompatible schemas.

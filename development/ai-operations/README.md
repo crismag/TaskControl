@@ -1,5 +1,8 @@
 # TaskControl AI Development Operations
 
+- Document level: **3 — Specifications**
+- Lifecycle state: Canonical
+
 ## Purpose
 
 This package defines repeatable operating procedures for AI coding agents working on TaskControl. It converts the repository's vision, domain handbook, engineering governance, and ADRs into executable development workflows.

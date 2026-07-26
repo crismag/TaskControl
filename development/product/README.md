@@ -1,5 +1,8 @@
 # TaskControl Product Context
 
+- Document level: **0 — Identity**
+- Lifecycle state: Canonical
+
 This package defines the authoritative product identity, scope, audience, ecosystem boundaries, integration model, and delivery direction for TaskControl.
 
 ## Product statement
@@ -14,11 +17,17 @@ TaskControl Core must never depend on KAE, an AI framework, or any domain-specif
 
 1. `PRODUCT_VISION.md` — mission, value, principles, and success criteria.
 2. `PRODUCT_SCOPE.md` — owned capabilities, non-goals, and release boundaries.
-3. `USERS_AND_USE_CASES.md` — target users and representative workloads.
-4. `ECOSYSTEM_BOUNDARIES.md` — relationship to KAE and other external systems.
-5. `INTEGRATION_STRATEGY.md` — public integration mechanisms and compatibility rules.
-6. `PRODUCT_ROADMAP.md` — implementation-first path to the first useful release.
+3. `PRODUCT_PHILOSOPHY.md` — design philosophy and the product test applied to every feature.
+4. `USERS_AND_USE_CASES.md` — target users and representative workloads.
+5. `USER_JOURNEYS.md` — concrete journeys, each marked with its phase.
+6. `ECOSYSTEM_BOUNDARIES.md` — relationship to KAE and other external systems.
+7. `INTEGRATION_STRATEGY.md` — public integration mechanisms and compatibility rules.
+8. `PRODUCT_ROADMAP.md` — implementation-first path to the first useful release.
+
+Capability deliberately outside the current phase is not here. It is registered in `../future/DEFERRED_CAPABILITIES.md`.
 
 ## Precedence
 
-When older documentation can be interpreted as making TaskControl part of KAE or primarily an AI engineering product, this product package takes precedence. Such conflicts should be corrected in the affected document rather than preserved as competing product definitions.
+The repository-wide precedence ladder is published once, in `../00_CONTEXT_INDEX.md` (ADR 0017). This package sits at Level 0 and therefore outranks architecture, engineering, and blueprint documents.
+
+Where older documentation could be read as making TaskControl part of KAE or primarily an AI engineering product, that reading is wrong. Such conflicts are corrected in the affected document — never preserved as competing product definitions, and never resolved by adding another one.

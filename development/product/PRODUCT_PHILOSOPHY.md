@@ -1,14 +1,27 @@
 # TaskControl Product Philosophy
 
+- Document level: **0 — Identity**
+- Governed by: `PRODUCT_VISION.md`, `PRODUCT_SCOPE.md`
+- Related: ADR 0016 (outcomes), ADR 0018 (execution before generation)
+
 ## Purpose
 
-TaskControl exists to turn operational intent into reliable, observable, deployable scheduled operations.
+TaskControl exists to turn operational intent into reliable, observable, governable automated work.
 
-The product must not be designed as a graphical editor for cron syntax. Cron is only one possible target. The user should describe what must happen, when it should happen, where it should run, under what conditions it is allowed to run, and what outcome proves success. TaskControl is responsible for transforming that intent into implementation artefacts and operational controls.
+The product must not be designed as a graphical editor for cron syntax. Cron is one possible execution target among several, and in Phase 1 it is not a target at all. The user should describe what must happen, when it should happen, where it should run, under what conditions it is allowed to run, and what outcome proves success. TaskControl is responsible for turning that intent into execution and operational control.
 
-> The user defines intent. TaskControl generates implementation.
+> The user defines intent. TaskControl resolves it into safe, observable execution.
 
 This sentence is the primary product rule. Every feature, API, screen, schema, adapter, and workflow should be evaluated against it.
+
+## Two delivery modes, in order
+
+TaskControl resolves intent into execution in two ways. ADR 0018 fixes their order.
+
+1. **TaskControl executes** (Phase 1). The internal scheduler evaluates eligibility and the TaskControl runtime runs the work directly. This is the default and it is what makes the product standalone.
+2. **TaskControl generates** (Phase 2). Scheduler adapters compile a task revision into native artefacts — a cron entry, a systemd timer — which a host scheduler executes, calling back into the same runtime.
+
+The second mode is an additional delivery channel for an already-proven task, never a separate product. Both modes share one domain model, one runtime, and one outcome vocabulary.
 
 ## What users should think about
 
@@ -31,7 +44,7 @@ Advanced users may inspect, override, or extend generated artefacts, but impleme
 TaskControl should expose stable domain concepts and hide replaceable mechanisms.
 
 | User intent | Possible generated mechanisms |
-|---|---|
+| --- | --- |
 | Schedule | cron, systemd timer, Kubernetes CronJob, Windows task |
 | Run condition | Python evaluator, shell guard, remote policy decision |
 | Runtime profile | environment file, secret reference, container environment |
@@ -51,26 +64,13 @@ Complexity should appear only when the user's operating context requires it.
 
 ## Explicit operational states
 
-TaskControl must distinguish states that traditional cron environments frequently blur together.
+TaskControl must distinguish states that traditional cron environments blur together. A skip is not a failure. A zero exit code is not necessarily operational success. A guard that prevented a start is not the same as a policy that declined to run.
 
-A triggered task may become:
-
-- permitted and started;
-- skipped because a calendar is closed;
-- skipped because a feature switch is disabled;
-- blocked because a dependency is unhealthy;
-- rejected because configuration is invalid;
-- failed before the command starts;
-- started and completed successfully;
-- started and completed with a process failure;
-- completed at process level but failed an expected-outcome check;
-- timed out;
-- cancelled;
-- lost because an executor became unavailable.
-
-A skip is not a failure. A zero process exit code is not necessarily operational success. The platform must preserve these distinctions in the domain model, API, UI, logs, metrics, and notifications.
+These distinctions must survive into the domain model, API, UI, logs, metrics, and notifications. **The normative vocabulary is defined once, in ADR 0016.** This document does not restate it.
 
 ## Generated artefacts are inspectable
+
+This section governs Phase 2 generation and the Phase 1 artefacts that precede it — resolved configuration snapshots, validation output, and execution records.
 
 Generated content should be deterministic where practical, versioned, diffable, validated before deployment, attributable to a task revision, reproducible from stored intent, and safe to preview without applying changes.
 
@@ -131,3 +131,7 @@ Before accepting a major feature, ask:
 7. Can generated output be inspected and reproduced?
 
 When the answer is no, reconsider the design.
+
+## Where this document does not decide
+
+Product philosophy sets the standard a feature must meet. It does not decide delivery order, scope boundaries, or vocabulary. Those belong to `PRODUCT_ROADMAP.md`, `PRODUCT_SCOPE.md`, and the ADRs respectively.

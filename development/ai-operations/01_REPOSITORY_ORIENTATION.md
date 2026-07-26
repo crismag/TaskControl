@@ -1,5 +1,8 @@
 # Repository Orientation Playbook
 
+- Document level: **3 — Specifications**
+- Lifecycle state: Canonical
+
 ## Objective
 
 Build enough verified context to modify TaskControl safely without reading the repository as an undifferentiated collection of files.

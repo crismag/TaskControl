@@ -49,12 +49,26 @@ TaskControl Core must remain independent of any specific business domain, AI fra
 
 ## Current project stage
 
-The repository currently contains the product, domain, architecture, engineering-governance, architecture-decision, and AI-development-operation context required to begin implementation. The next major milestone is the implementation blueprint followed by the first functional application release.
+**Documentation only — implementation has not started.** The product, domain, architecture, engineering, decision, and agent-operations context is complete and reconciled. The next action is Wave 0 of the implementation blueprint.
+
+### What the first release will and will not do
+
+TaskControl schedules and runs your work itself, through its own scheduler and runtime, observed through its own API, CLI, and web interface. It runs as a persistent local process.
+
+It does **not** yet generate crontab entries or systemd units, deploy to remote hosts, or manage a multi-host estate. Those are Phase 2 and Phase 3 capabilities, deliberately sequenced after execution semantics are proven — see [ADR 0018](development/decisions/0018_INTERNAL_SCHEDULER_BEFORE_ARTEFACT_DEPLOYMENT.md) and the [deferred-capabilities register](development/future/DEFERRED_CAPABILITIES.md).
 
 ## Development documentation
 
-Start with [`development/README.md`](development/README.md). Product identity and boundaries are defined under [`development/product/`](development/product/).
+Start with [`development/00_CONTEXT_INDEX.md`](development/00_CONTEXT_INDEX.md). It is the only entry point: it carries the file map, the documentation levels, the precedence ladder, and the current status.
+
+- What we build next: [`development/10_IMPLEMENTATION_BLUEPRINT.md`](development/10_IMPLEMENTATION_BLUEPRINT.md)
+- Product identity and boundaries: [`development/product/`](development/product/)
+- Why every file exists: [`development/DOCUMENTATION_AUDIT.md`](development/DOCUMENTATION_AUDIT.md)
 
 ## Product direction
 
 TaskControl will be developed first as a useful standalone application. Advanced distributed, enterprise, and ecosystem integrations will be added incrementally without weakening the usability of the base product.
+
+## Licence
+
+Not yet chosen — see [`OPEN_QUESTIONS.md`](development/OPEN_QUESTIONS.md) Q1. Until it is, all rights are reserved and the repository is not open for external contribution.

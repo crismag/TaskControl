@@ -1,5 +1,8 @@
 # Security and Operations Review Playbook
 
+- Document level: **3 — Specifications**
+- Lifecycle state: Canonical
+
 ## Objective
 
 Ensure a change can be operated safely, diagnosed under failure, and trusted with production data and credentials.

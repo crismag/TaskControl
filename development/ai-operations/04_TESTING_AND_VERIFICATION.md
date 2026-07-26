@@ -1,5 +1,8 @@
 # Testing and Verification Playbook
 
+- Document level: **3 — Specifications**
+- Lifecycle state: Canonical
+
 ## Objective
 
 Provide evidence that a change satisfies its acceptance criteria, preserves invariants, and fails safely.

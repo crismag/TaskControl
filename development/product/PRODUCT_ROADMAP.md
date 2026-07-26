@@ -1,5 +1,8 @@
 # Product Roadmap
 
+- Document level: **0 — Identity**
+- Lifecycle state: Canonical
+
 ## Roadmap principle
 
 Build the first useful TaskControl application before expanding into KAE-specific, distributed, or enterprise capabilities.

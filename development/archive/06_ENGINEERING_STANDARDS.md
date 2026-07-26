@@ -1,3 +1,11 @@
+> **STATUS: SUPERSEDED** — replaced by `development/engineering/` (the engineering handbook).
+>
+> Retained for historical reasoning. **Do not use for new implementation.**
+>
+> Superseded: 2026-07-26. Reason: Fully absorbed. Golden-file, contract, and property-test requirements unique to this document were merged into `development/engineering/quality/30_TESTING_AND_QUALITY_STRATEGY.md`.
+
+---
+
 # Engineering Standards
 
 ## General

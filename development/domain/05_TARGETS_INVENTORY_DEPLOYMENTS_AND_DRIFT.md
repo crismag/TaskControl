@@ -1,5 +1,8 @@
 # Targets, Inventory, Deployments, and Drift
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Purpose
 
 The deployment domain transforms versioned operational intent into target-specific artefacts and applies those artefacts safely, visibly, and reversibly.

@@ -1,5 +1,8 @@
 # Repository Review Process
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 Every substantial development wave ends with a repository-level review, not only a review of changed lines.
 
 ## Review perspectives

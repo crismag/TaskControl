@@ -1,5 +1,8 @@
 # AI Change Policy
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Purpose
 
 AI-assisted work must remain traceable, reviewable, and bounded. The use of an AI agent does not lower engineering or review requirements.

@@ -1,5 +1,8 @@
 # AI Prompt Contract
 
+- Document level: **3 — Specifications**
+- Lifecycle state: Canonical
+
 ## Objective
 
 Define the minimum information and behavioural constraints for task-specific prompts issued to AI engineering agents.

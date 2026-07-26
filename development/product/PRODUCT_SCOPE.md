@@ -1,5 +1,8 @@
 # Product Scope
 
+- Document level: **0 — Identity**
+- Lifecycle state: Canonical
+
 ## Core responsibility
 
 TaskControl owns the lifecycle of automated work from definition through scheduling, execution, observation, and operational governance.

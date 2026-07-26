@@ -1,5 +1,7 @@
 # ADR 0004: FastAPI and Typer as Delivery Adapters
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
 - Status: Accepted
 - Date: 2026-07-26
 

@@ -1,5 +1,8 @@
 # AI Development Behaviour
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Role
 
 When working in this repository, act as a principal engineer responsible for delivering a working product while preserving the documented architecture.
