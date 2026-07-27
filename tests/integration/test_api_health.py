@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,7 +12,9 @@ from taskcontrol import __version__
 from taskcontrol.api.middleware import CORRELATION_HEADER
 from taskcontrol.apps.api.main import create_app
 from taskcontrol.common.errors import NotFoundError, ValidationError
+from taskcontrol.infrastructure.database import create_database_engine
 from taskcontrol.infrastructure.logging import configure_logging, get_logger
+from taskcontrol.infrastructure.migrations import upgrade_to_head
 from taskcontrol.infrastructure.settings import Settings, load_settings
 
 pytestmark = pytest.mark.integration
@@ -20,6 +23,11 @@ pytestmark = pytest.mark.integration
 @pytest.fixture
 def client(settings: Settings) -> TestClient:
     return TestClient(create_app(settings))
+
+
+def test_liveness_does_not_depend_on_the_database(client: TestClient) -> None:
+    """Liveness answers "is this process alive"; it must not touch a dependency."""
+    assert client.get("/api/v1/health").status_code == 200
 
 
 def test_health_reports_alive(client: TestClient) -> None:
@@ -33,10 +41,61 @@ def test_health_reports_alive(client: TestClient) -> None:
 
 def test_ready_reports_each_dependency(client: TestClient) -> None:
     response = client.get("/api/v1/ready")
-    assert response.status_code == 200
     body = response.json()
-    assert body["ready"] is True
-    assert [check["name"] for check in body["checks"]] == ["configuration"]
+    assert [check["name"] for check in body["checks"]] == ["configuration", "database"]
+
+
+def test_not_ready_without_a_schema(tmp_path: Path) -> None:
+    """Serving against a missing schema fails confusingly, so say so instead."""
+    url = f"sqlite+pysqlite:///{(tmp_path / 'empty.db').as_posix()}"
+    with TestClient(create_app(load_settings(database_url=url))) as client:
+        response = client.get("/api/v1/ready")
+
+    assert response.status_code == 503
+    body = response.json()
+    assert body["ready"] is False
+    database = next(check for check in body["checks"] if check["name"] == "database")
+    assert "taskctl init" in database["detail"]
+
+
+def test_not_ready_when_the_database_is_unreachable(tmp_path: Path) -> None:
+    """A missing directory is a different problem from a missing schema."""
+    url = f"sqlite+pysqlite:///{(tmp_path / 'nope' / 'x.db').as_posix()}"
+    with TestClient(create_app(load_settings(database_url=url))) as client:
+        response = client.get("/api/v1/ready")
+
+    assert response.status_code == 503
+    database = next(check for check in response.json()["checks"] if check["name"] == "database")
+    assert "not reachable" in database["detail"]
+
+
+def test_ready_once_the_database_is_initialised(tmp_path: Path) -> None:
+    """The positive case: an initialised database makes the process ready."""
+    settings = load_settings(
+        database_url=f"sqlite+pysqlite:///{(tmp_path / 'ready.db').as_posix()}"
+    )
+    engine = create_database_engine(settings.database_url)
+    try:
+        upgrade_to_head(engine)
+    finally:
+        engine.dispose()
+
+    with TestClient(create_app(settings)) as client:
+        response = client.get("/api/v1/ready")
+
+    assert response.status_code == 200
+    assert response.json()["ready"] is True
+
+
+def test_readiness_never_reveals_the_database_url(tmp_path: Path) -> None:
+    """A PostgreSQL URL routinely embeds a password."""
+    secret_url = f"sqlite+pysqlite:///{(tmp_path / 'nonexistent' / 'x.db').as_posix()}"
+    settings = load_settings(database_url=secret_url)
+
+    with TestClient(create_app(settings)) as client:
+        rendered = client.get("/api/v1/ready").text
+
+    assert secret_url not in rendered
 
 
 def test_liveness_and_readiness_are_separate_endpoints(client: TestClient) -> None:

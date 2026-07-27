@@ -105,8 +105,10 @@ def test_describe_excludes_nothing_sensitive_today_and_is_stable() -> None:
         "log_format",
         "api_host",
         "api_port",
+        "database_backend",
     }
     assert not any("secret" in key or "password" in key for key in described)
+    assert "database_url" not in described, "a database URL may embed a password"
 
 
 def test_settings_type_is_frozen_by_config() -> None:

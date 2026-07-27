@@ -12,6 +12,12 @@ from typing import Annotated
 import typer
 
 from taskcontrol import __version__
+from taskcontrol.infrastructure.database import (
+    create_database_engine,
+    database_url,
+    ensure_data_directory,
+)
+from taskcontrol.infrastructure.migrations import current_revision, upgrade_to_head
 from taskcontrol.infrastructure.server import run_api
 from taskcontrol.infrastructure.settings import Settings
 
@@ -40,6 +46,49 @@ def version(
     else:
         typer.echo(__version__)
     _ = ctx
+
+
+@app.command()
+def init(
+    ctx: typer.Context,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit machine-readable output.")] = False,
+) -> None:
+    """Create the TaskControl database and bring it up to date.
+
+    Safe to run repeatedly: applying no outstanding migrations is a successful no-op, so
+    this is also the upgrade command.
+    """
+    settings = _settings(ctx)
+    ensure_data_directory(settings)
+
+    url = database_url(settings)
+    engine = create_database_engine(url)
+    try:
+        before = current_revision(engine)
+        after = upgrade_to_head(engine)
+    finally:
+        engine.dispose()
+
+    payload = {
+        "status": "ok",
+        "backend": settings.database_backend,
+        "data_dir": str(settings.data_dir),
+        "previous_revision": before,
+        "current_revision": after,
+        "changed": before != after,
+    }
+
+    if as_json:
+        typer.echo(json.dumps(payload))
+        return
+
+    if before == after:
+        typer.echo(f"Database already up to date at revision {after}.")
+    elif before is None:
+        typer.echo(f"Database created at revision {after}.")
+    else:
+        typer.echo(f"Database upgraded from revision {before} to {after}.")
+    typer.echo(f"Backend: {settings.database_backend}    Data directory: {settings.data_dir}")
 
 
 @app.command()
