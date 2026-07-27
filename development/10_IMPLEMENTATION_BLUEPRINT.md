@@ -197,12 +197,13 @@ tests.
 
 **Not yet delivered, and not folded into a later wave:**
 
-- `disable` and `enable` operations. Undeploying and redeploying works; pausing a capability
-  without removing its definition does not.
-- Human-friendly schedule expression. A revision carries a validated cron expression today;
-  "every weekday at 06:00" is not yet accepted, so the README's claim to need no cron syntax
-  is true of *layout* and not yet of *schedule*.
-- Adoption of an existing crontab by importing it, rather than redefining the work.
+- Adoption of an existing crontab by importing it, rather than redefining the work. This is
+  the friction most likely to stop a new operator at the first step, and it is the last
+  thing standing between R2 and complete.
+
+`disable` and `enable` were delivered on 2026-07-27, as was the human schedule grammar —
+`every weekday at 06:30`, `every 15 minutes`, `on day 1 of every month at 03:00` — with
+ambiguous intervals refused rather than guessed at.
 
 #### Build
 
@@ -231,11 +232,14 @@ tests.
 - Activation policy enforcement (ADR 0024), including the local journal path and its
   reconciliation.
 - A short-lived wrapper command that cron invokes.
-- `plan`, `apply`, `verify`, `status`, `disable`, `enable` operations.
+- `plan`, `apply`, `verify`, `status`, `disable`, `enable`, and `explain` operations.
 
 #### Acceptance
 
 - Human-friendly schedule renders to the expected cron expression, deterministically.
+  **Met** (`tests/unit/domain/test_schedule_expressions.py`). A human expression and its cron
+  equivalent produce the same revision digest, so rewording a definition is not a content
+  change and drift detection does not report one.
 - Unmanaged crontab entries survive apply byte for byte.
 - Re-apply is idempotent; schedule update produces a correct plan and apply.
 - Read-back verification detects a mismatch; ambiguous managed-block identity fails closed.

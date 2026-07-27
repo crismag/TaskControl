@@ -18,7 +18,9 @@ import logging
 from collections.abc import Callable, Iterator, Sequence
 from typing import Any
 
-from taskcontrol.domain.common.values import Slug
+from taskcontrol.common.errors import NotFoundError
+from taskcontrol.domain.common.identifiers import OwnerId
+from taskcontrol.domain.common.values import Slug, UtcTimestamp
 from taskcontrol.domain.deployment.manifest import InstalledRevision
 from taskcontrol.domain.tasks.lifecycle import TaskLifecycleState
 from taskcontrol.domain.tasks.revision import TaskRevision
@@ -228,6 +230,76 @@ class DeploymentService:
             The report.
         """
         return self._scheduler.verify(self.desired_artefacts())
+
+    def disable(self, slug: Slug, *, actor: OwnerId, at: UtcTimestamp) -> ApplyResult:
+        """Suspend a capability and take its artefact off this host.
+
+        Disabling is not undeploying. The definition, its revisions, and its history stay
+        exactly where they are; only the thing that causes cron to run it goes away. That
+        is what an operator means by "stop this running tonight" — they intend to turn it
+        back on.
+
+        The artefact is removed immediately rather than at the next apply. An operator who
+        disables a job at 01:50 expects it not to run at 02:00, and "it will stop once
+        somebody applies" is not that.
+
+        Args:
+            slug: The capability to disable.
+            actor: Who is disabling it.
+            at: When.
+
+        Returns:
+            What was removed from the host.
+
+        Raises:
+            NotFoundError: If no capability has that slug.
+            DomainRuleViolationError: If its lifecycle state cannot be suspended.
+        """
+        return self._set_lifecycle(slug, suspend=True, actor=actor, at=at)
+
+    def enable(self, slug: Slug, *, actor: OwnerId, at: UtcTimestamp) -> ApplyResult:
+        """Return a suspended capability to service and redeploy its artefact.
+
+        Args:
+            slug: The capability to enable.
+            actor: Who is enabling it.
+            at: When.
+
+        Returns:
+            What was written to the host.
+
+        Raises:
+            NotFoundError: If no capability has that slug.
+            DomainRuleViolationError: If its lifecycle state cannot be resumed.
+        """
+        return self._set_lifecycle(slug, suspend=False, actor=actor, at=at)
+
+    def _set_lifecycle(
+        self, slug: Slug, *, suspend: bool, actor: OwnerId, at: UtcTimestamp
+    ) -> ApplyResult:
+        """Change a capability's lifecycle state, then bring the host back into line.
+
+        The state change commits before the host is touched. If the deployment then fails,
+        the recorded intent is still correct and the next apply completes it — whereas
+        deploying first and failing to record would leave the host and the control plane
+        disagreeing with nothing to reconcile them.
+        """
+        with self._unit_of_work_factory() as uow:
+            task = uow.tasks.get_by_slug(slug)
+            if task is None:
+                raise NotFoundError(
+                    f"No capability named '{slug}'.", details={"slug": slug.to_primitive()}
+                )
+            version = uow.tasks.version_of(task.task_id)
+            changed = (
+                task.suspend(updated_by=actor, updated_at=at)
+                if suspend
+                else task.resume(updated_by=actor, updated_at=at)
+            )
+            uow.tasks.update(changed, expected_version=version or 0)
+            uow.commit()
+
+        return self.apply()
 
     def remove(self, artefacts: Sequence[DesiredArtefact]) -> ApplyResult:
         """Undeploy specific capabilities.

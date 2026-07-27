@@ -25,8 +25,14 @@ first three actually do:
 15 3 * * * root /opt/ops/bin/prune-scratch.sh
 ```
 
-You describe those three as capabilities — what they are for, who owns them, how they should
-be deployed — and then:
+You describe those three as capabilities — what they are for, who owns them, when they run,
+how they should be deployed — in English rather than cron syntax:
+
+```yaml
+activation_schedule: every weekday at 17:30
+```
+
+Then:
 
 ```console
 $ taskctl schedule plan
@@ -104,6 +110,10 @@ Exit code 1, so you can run that from monitoring rather than remembering to look
   so an execution from eight months ago still means what it meant.
 - **Deployment that is reviewable**: plan before apply, verify by reading back, roll back on
   failure, and never touch a line TaskControl did not write.
+- **Schedules in English** — `every weekday at 06:30`, `every 15 minutes`, `on day 1 of every
+  month at 03:00` — with the ambiguous ones refused rather than guessed at.
+- **Disable without deleting.** Stop a job running tonight, keep its definition and history,
+  put it back tomorrow.
 
 ## What happens when TaskControl is down
 
@@ -209,8 +219,8 @@ REST health surface.
 
 Not yet: a web interface, remote hosts, the durable work queue and its workers, expected-
 outcome evaluation (a process exiting zero is currently taken at its word), REST and MCP
-surfaces beyond health, and adopting an existing crontab by importing it rather than
-redefining it.
+surfaces beyond health, and **adopting an existing crontab by importing it** rather than
+redefining the work — which is the friction most likely to stop you at the first step.
 
 ## Development documentation
 

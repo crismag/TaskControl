@@ -51,12 +51,42 @@ daily jobs.
 This is the common case, and it is meant to be boring. "Run this daily" should not require an
 opinion about crontab layout.
 
+## Saying when, in English
+
+A definition may write its schedule either way:
+
+```yaml
+activation_schedule: every weekday at 17:30   # accepted
+activation_schedule: 30 17 * * 1-5            # also accepted; identical meaning
+```
+
+Both produce the same revision, digest-for-digest — the schedule means the same thing, so
+rewording it is not a content change and drift detection does not report one. The files here
+use the cron form because that is what a bundle is written back as; the wording is not
+preserved, only the schedule.
+
+Check an expression before you commit to it:
+
+```console
+$ taskctl schedule explain "every weekday at 06:30"
+every weekday at 06:30  ->  30 6 * * 1-5
+reads back as: every weekday at 06:30
+```
+
+The grammar is small and closed on purpose. `every other tuesday` is refused with the list of
+forms that do work, because a job that silently runs at a different time than you asked for is
+worse than one that fails to be defined. So is `every 7 hours` — cron restarts its step count
+at midnight, so that would leave a three-hour gap once a day rather than the even spacing the
+words suggest.
+
 ## Applying them
 
 ```console
-$ taskctl schedule plan     # shows what would change; writes nothing
-$ taskctl schedule apply    # writes, then reads back and verifies each artefact
-$ taskctl schedule verify   # exits 1 on drift, so monitoring can run it
+$ taskctl schedule plan      # shows what would change; writes nothing
+$ taskctl schedule apply     # writes, then reads back and verifies each artefact
+$ taskctl schedule verify    # exits 1 on drift, so monitoring can run it
+$ taskctl schedule disable <slug>   # stop it running; keep the definition and history
+$ taskctl schedule enable  <slug>   # put it back
 ```
 
 Unmanaged entries in your crontab are never touched — not reordered, not reformatted. Only
