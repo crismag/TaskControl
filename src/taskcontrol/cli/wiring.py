@@ -12,7 +12,8 @@ from collections.abc import Callable
 
 from taskcontrol.adapters.clock import SystemClock
 from taskcontrol.adapters.executors import default_registry
-from taskcontrol.adapters.locking.no_overlap_protection import NoOverlapProtection
+from taskcontrol.adapters.locking.durable import DurableOverlapLock
+from taskcontrol.adapters.persistence.claim_store import SqlAlchemyClaimStore
 from taskcontrol.adapters.persistence.unit_of_work import UnitOfWork
 from taskcontrol.application.runtime import RuntimeService
 from taskcontrol.common.errors import NotFoundError, ValidationError
@@ -29,12 +30,9 @@ from taskcontrol.infrastructure.settings import Settings
 def build_runtime(settings: Settings) -> tuple[RuntimeService, Callable[[str], TaskId]]:
     """Build a runtime and a task resolver.
 
-    No overlap protection is wired in. `ProcessLocalOverlapLock` would guard only this
-    process, which under cron-backed activation guards nothing (R1 Finding 1), and wiring it
-    here would let a caller believe `OverlapPolicy.FORBID` was being honoured when it was
-    not. `NoOverlapProtection` is honest instead: it never refuses, and it says so.
-
-    Durable claims arrive in R2 (ADR 0023) and replace this.
+    Overlap protection is durable (ADR 0023), which is what makes `OverlapPolicy.FORBID`
+    mean something under cron-backed activation. R1 measured the alternative: with a
+    process-local lock, two concurrent activations of one task both ran.
 
     Args:
         settings: Validated settings.
@@ -49,11 +47,12 @@ def build_runtime(settings: Settings) -> tuple[RuntimeService, Callable[[str], T
     def unit_of_work_factory() -> UnitOfWork:
         return UnitOfWork(session_factory)
 
+    clock = SystemClock()
     runtime = RuntimeService(
         unit_of_work_factory=unit_of_work_factory,
         executors=default_registry(),
-        lock=NoOverlapProtection(),
-        clock=SystemClock(),
+        lock=DurableOverlapLock(SqlAlchemyClaimStore(session_factory, clock)),
+        clock=clock,
     )
 
     def resolve(reference: str) -> TaskId:

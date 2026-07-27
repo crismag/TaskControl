@@ -17,6 +17,7 @@ from __future__ import annotations
 from types import TracebackType
 from typing import Literal, Self
 
+from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from taskcontrol.adapters.persistence.repositories import (
@@ -24,7 +25,11 @@ from taskcontrol.adapters.persistence.repositories import (
     SqlAlchemyTaskRepository,
     SqlAlchemyTaskRevisionRepository,
 )
-from taskcontrol.common.errors import ConflictError
+from taskcontrol.common.errors import (
+    ConflictError,
+    TaskControlError,
+    TransientInfrastructureError,
+)
 from taskcontrol.ports.repositories import ConcurrencyConflictError
 
 
@@ -68,9 +73,20 @@ class UnitOfWork:
         try:
             if exception_type is not None or not self._committed:
                 session.rollback()
+        except SQLAlchemyError:
+            # The rollback itself failed, which means the connection is already gone. The
+            # transaction is not committed, which is what matters; the original exception
+            # is the one worth reporting.
+            pass
         finally:
             session.close()
             self._session = None
+
+        # A vendor exception escaping here is what produced the forty-three lines of
+        # SQLAlchemy traceback an operator saw in R1 Finding 3. Translated at the boundary
+        # it crosses, which is this one.
+        if isinstance(exception, SQLAlchemyError):
+            raise _translate(exception) from exception
         return False
 
     def commit(self) -> None:
@@ -86,6 +102,9 @@ class UnitOfWork:
         except ConcurrencyConflictError as exc:
             session.rollback()
             raise ConflictError(str(exc)) from exc
+        except SQLAlchemyError as exc:
+            session.rollback()
+            raise _translate(exc) from exc
         self._committed = True
 
     def rollback(self) -> None:
@@ -108,3 +127,27 @@ class UnitOfWork:
             message = "The unit of work is not active. Use it as a context manager."
             raise RuntimeError(message)
         return self._session
+
+
+def _translate(error: SQLAlchemyError) -> TaskControlError:
+    """Turn a vendor exception into the product's own taxonomy.
+
+    Deliberately lossy. The operator gets a sentence naming what could not be done; the
+    driver's message, the connection string, and the library's stack stay in the chained
+    cause, where a log at debug level can still reach them.
+
+    Args:
+        error: The vendor exception.
+
+    Returns:
+        The error to raise instead.
+    """
+    if isinstance(error, DBAPIError) and error.connection_invalidated:
+        return TransientInfrastructureError(
+            "Lost the connection to TaskControl's database part-way through. Nothing was "
+            "committed. Retrying is safe."
+        )
+    return TransientInfrastructureError(
+        "Could not reach TaskControl's database, so this operation was not recorded. "
+        "Check that the database is running and that the configured connection is correct."
+    )
