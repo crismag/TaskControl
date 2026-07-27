@@ -18,6 +18,9 @@ from pydantic import BaseModel, Field
 from taskcontrol import __version__
 from taskcontrol.api.dependencies import SettingsDependency
 from taskcontrol.api.errors import HTTP_SERVICE_UNAVAILABLE
+from taskcontrol.infrastructure.database import create_database_engine, database_url
+from taskcontrol.infrastructure.migrations import is_up_to_date
+from taskcontrol.infrastructure.settings import Settings
 
 router = APIRouter(tags=["health"])
 
@@ -44,6 +47,40 @@ class ReadinessResponse(BaseModel):
     ready: bool = Field(description="True only when every check passed.")
     version: str = Field(description="Running TaskControl version.")
     checks: list[ReadinessCheck] = Field(description="Individual dependency results.")
+
+
+def _database_check(settings: Settings) -> ReadinessCheck:
+    """Check that the database is reachable and at the expected schema revision.
+
+    Deliberately cheap: one connection and one query against the version table. Readiness
+    is polled frequently and must not become a load source of its own.
+
+    Args:
+        settings: Validated settings.
+
+    Returns:
+        The check result, naming the problem when there is one.
+    """
+    engine = create_database_engine(database_url(settings))
+    try:
+        if not is_up_to_date(engine):
+            return ReadinessCheck(
+                name="database",
+                ready=False,
+                detail="The database schema is missing or out of date. Run 'taskctl init'.",
+            )
+    except Exception as exc:  # noqa: BLE001 - any failure here means not ready
+        # The exception type is reported; the message is not, because a driver error can
+        # echo the connection URL, which may embed a password.
+        return ReadinessCheck(
+            name="database",
+            ready=False,
+            detail=f"The database is not reachable ({type(exc).__name__}).",
+        )
+    finally:
+        engine.dispose()
+
+    return ReadinessCheck(name="database", ready=True, detail=None)
 
 
 @router.get(
@@ -83,8 +120,8 @@ async def ready(
 ) -> ReadinessResponse:
     """Report whether the process can serve its advertised capability.
 
-    Wave 0 advertises only configuration validity, so exactly one check runs. Persistence
-    joins this list in Wave 2 and the scheduler in Wave 5.
+    A process serving against a missing or out-of-date schema fails in confusing ways, so
+    it reports itself not ready instead. The scheduler joins this list in Wave 5.
 
     Args:
         response: Injected so the status code can be set to 503 when not ready.
@@ -93,17 +130,9 @@ async def ready(
     Returns:
         Aggregate readiness and the individual check results.
     """
-    checks = [
-        ReadinessCheck(
-            name="configuration",
-            ready=True,
-            detail=None,
-        )
-    ]
-
     # Settings validate at startup, so reaching this point means configuration is sound.
-    # The check exists so the response shape is correct before real dependencies arrive.
-    _ = settings
+    checks = [ReadinessCheck(name="configuration", ready=True, detail=None)]
+    checks.append(_database_check(settings.value))
 
     all_ready = all(check.ready for check in checks)
     if not all_ready:

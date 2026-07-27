@@ -20,17 +20,17 @@ It does not restate the directory tree (see `engineering/repository/10_REPOSITOR
 
 ## Current position
 
-**Repository state: Waves 0 and 1 complete. The product vocabulary exists as typed,
-tested, framework-free code, with portable YAML bundles and a published JSON Schema.
-Nothing is persisted or executed yet.**
+**Repository state: Waves 0–2 complete. Task definitions and revisions are persisted and
+survive a restart, on SQLite by default and PostgreSQL by configuration. Nothing is
+executed yet.**
 
-**Next action: Wave 2 — Persistence and migrations.**
+**Next action: Wave 3 — Runtime and executors.**
 
 | Wave | Name | Status |
 | --- | --- | --- |
 | 0 | Foundation and quality gates | **complete** (2026-07-26) |
 | 1 | Domain core | **complete** (2026-07-27) |
-| 2 | Persistence and migrations | not started |
+| 2 | Persistence and migrations | **complete** (2026-07-27) |
 | 3 | Runtime and executors | not started |
 | 4 | Expectations and outcome evaluation | not started |
 | 5 | Scheduling, eligibility, and dependencies | not started |
@@ -217,6 +217,30 @@ outside the standard library, enforced by the Wave 0 architecture test.
 - No SQLAlchemy import appears under `domain/` or `application/`.
 
 **Gate:** a migration test that creates, migrates, writes, restarts, and reads back.
+
+### Outcome
+
+Delivered as specified, with one placement change and two decisions worth carrying:
+
+1. **The unit of work lives in `adapters/persistence/`, not `infrastructure/`** as this
+   document originally said. It constructs SQLAlchemy repositories and owns a SQLAlchemy
+   session, which makes it a persistence concern rather than a neutral process-level one.
+   The architecture test caught the import the moment it existed.
+2. **Revision content is stored as a JSON document**, not normalised columns. Normalising
+   would mean a migration every time an executor option is added, and would put the
+   immutability guarantee at the mercy of a schema change. The digest is stored beside it
+   so integrity is checkable without parsing.
+3. **Timestamps are stored UTC-naive.** SQLite cannot hold an offset and would round-trip
+   an aware value into a lie. Mappers attach UTC on the way out; a test asserts no naive
+   datetime reaches the domain.
+
+Also beyond the listed scope: readiness now reports database reachability and schema
+currency, because a process serving against an out-of-date schema fails confusingly.
+
+Verified: `make check` green; 633 tests, 34 PostgreSQL tests skipping with an actionable
+message; `taskctl init` creates and upgrades idempotently; a task written by one process is
+read back with a verifying digest by another; `/api/v1/ready` returns 503 with
+`"Run 'taskctl init'"` before initialisation and 200 after.
 
 ---
 

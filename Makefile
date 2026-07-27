@@ -6,7 +6,7 @@ VENV   := .venv
 BIN    := $(VENV)/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help install format lint typecheck test test-unit test-integration check clean run-api run-cli
+.PHONY: help install format lint typecheck test test-unit test-integration check clean init migration run-api run-cli
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -40,6 +40,12 @@ test-integration: ## Run integration tests only
 	$(BIN)/pytest tests/integration -m integration
 
 check: lint typecheck test ## Everything CI runs. The gate.
+
+init: ## Create the database and apply migrations
+	$(BIN)/taskctl init
+
+migration: ## Generate a migration from model changes: make migration M="add x"
+	$(BIN)/alembic revision --autogenerate -m "$(M)"
 
 run-api: ## Start the API with autoreload, bound per TASKCONTROL_API_HOST/PORT
 	$(BIN)/taskctl server --reload

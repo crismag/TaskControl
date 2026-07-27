@@ -80,6 +80,14 @@ class Settings(BaseSettings):
         default=Path("./data"),
         description="Directory for the database and local artefacts. Created on init.",
     )
+    database_url: str = Field(
+        default="",
+        description=(
+            "SQLAlchemy database URL. Empty means a SQLite file inside data_dir, which "
+            "is what a local installation wants. Set a postgresql+psycopg:// URL for "
+            "server mode."
+        ),
+    )
 
     api_host: str = Field(default="127.0.0.1", description="Interface the API binds to.")
     api_port: int = Field(default=8000, ge=1, le=65535, description="Port the API binds to.")
@@ -100,10 +108,38 @@ class Settings(BaseSettings):
             raise ValueError(message)
         return value
 
+    @field_validator("database_url")
+    @classmethod
+    def _validate_database_url(cls, value: str) -> str:
+        """Reject a URL whose scheme TaskControl does not support.
+
+        Failing at startup is far kinder than failing on the first query. The message
+        names the scheme rather than echoing the URL, which may embed a password.
+        """
+        if not value:
+            return value
+        scheme = value.split("://", 1)[0].split("+", 1)[0]
+        supported = {"sqlite", "postgresql"}
+        if scheme not in supported:
+            message = f"database_url scheme must be one of {sorted(supported)}, got {scheme!r}"
+            raise ValueError(message)
+        return value
+
     @property
     def is_production(self) -> bool:
         """Whether this process considers itself production."""
         return self.environment is Environment.PRODUCTION
+
+    @property
+    def database_backend(self) -> str:
+        """The database backend name, safe to display.
+
+        Only the scheme. A full URL may carry credentials and must never reach a log, a
+        health response, or an error message.
+        """
+        if not self.database_url:
+            return "sqlite"
+        return self.database_url.split("://", 1)[0].split("+", 1)[0]
 
     def describe(self) -> dict[str, str | int | bool]:
         """Return a redaction-safe summary for logs and the health endpoint.
@@ -121,6 +157,8 @@ class Settings(BaseSettings):
             "log_format": str(self.log_format),
             "api_host": self.api_host,
             "api_port": self.api_port,
+            # The URL itself is excluded: a PostgreSQL URL routinely embeds a password.
+            "database_backend": self.database_backend,
         }
 
 
