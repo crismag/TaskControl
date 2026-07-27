@@ -25,7 +25,8 @@ retained. The product direction changed on 2026-07-27: cron now owns recurring a
 (ADR 0022). The completed work is repositioned as supporting execution services, not
 discarded.**
 
-**Next action: R2 — Managed cron artefact vertical slice.**
+**Next action: finish R2's remainder, then R3.** The vertical slice works end to end; what
+is left is listed under R2 rather than quietly folded into the next wave.
 
 | Wave | Name | Status |
 | --- | --- | --- |
@@ -35,7 +36,7 @@ discarded.**
 | 3 | Runtime and executors | complete (previous direction) — retained, repositioned |
 | R0 | Canonical product and architecture reconciliation | **complete** (2026-07-27) |
 | R1 | Wave 3 compatibility review and terminology cleanup | **complete** (2026-07-27) |
-| R2 | Managed cron artefact vertical slice | not started |
+| R2 | Managed cron artefact vertical slice | **substantially complete** (2026-07-27) — see the remainder below |
 | R3 | Drop-in discovery and registration | not started |
 | R4 | Operational knowledge, import, adoption, and drift | not started |
 | R5 | Asynchronous work-item API and cron-woken worker | not started |
@@ -184,10 +185,24 @@ JSON Schema, and would collide with R2 adding fields to the same classes. Revisi
 
 ---
 
-### R2 — Managed cron artefact vertical slice
+### R2 — Managed cron artefact vertical slice — **substantially complete**
 
 **Goal:** the complete user value chain — define without cron syntax, apply, let cron
 activate, inspect the outcome.
+
+**Delivered (PRs #16–#20 and the recognition-test pass).** An operator can define
+capabilities, deploy them to any of the four cron layouts, let cron activate them, and read
+the outcome — including with the database stopped. Verified from a terminal, not only in
+tests.
+
+**Not yet delivered, and not folded into a later wave:**
+
+- `disable` and `enable` operations. Undeploying and redeploying works; pausing a capability
+  without removing its definition does not.
+- Human-friendly schedule expression. A revision carries a validated cron expression today;
+  "every weekday at 06:00" is not yet accepted, so the README's claim to need no cron syntax
+  is true of *layout* and not yet of *schedule*.
+- Adoption of an existing crontab by importing it, rather than redefining the work.
 
 #### Build
 
@@ -227,7 +242,9 @@ activate, inspect the outcome.
 - A failed apply rolls back.
 - **A task activates and records an outcome with the API process stopped.**
 - Two concurrent activations of one task: exactly one runs, the other is `BLOCKED` with
-  `blocked.overlap_lock_held` — proven by a multi-**process** test.
+  `blocked.overlap_lock_held` — proven by a multi-**process** test. **Met**
+  (`tests/integration/test_concurrent_activation.py`), measured the same way R1 measured the
+  failure: two subprocesses, two interpreters, no shared memory.
 - Both activation policies behave as ADR 0024 specifies with persistence stopped, and a
   journalled run reconciles into exactly one execution record.
 - Every deployment strategy passes the same contract tests: deterministic render, unmanaged

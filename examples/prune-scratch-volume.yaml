@@ -1,25 +1,23 @@
 kind: TaskBundle
 schema_version: '1.2'
 task:
-  task_id: task_01936b40-0000-7000-8000-000000000002
-  name: Settlement report
-  slug: settlement-report
-  description: Publish the daily settlement reconciliation for the finance team. Runs as the settlement
-    service account, which is why it is deployed to /etc/cron.d — that is the only layout that can name
-    the user. An unrecorded run is worse than a missed one, so it refuses to run when TaskControl cannot
-    record it.
+  task_id: task_01936b40-0000-7000-8000-000000000003
+  name: Prune scratch volume
+  slug: prune-scratch-volume
+  description: 'Remove scratch files older than seven days so the build agents do not fill their disk.
+    Classified as daily work, so it needs no schedule and no layout decision: it lands in /etc/cron.daily,
+    where the operating system already runs daily jobs.'
   owner_id: own_01936b40-0000-7000-8000-00000000ab01
   lifecycle_state: active
-  active_revision_id: rev_01936b40-0000-7000-8000-000000000002
+  active_revision_id: rev_01936b40-0000-7000-8000-000000000003
   labels:
-  - finance
-  - regulated
+  - housekeeping
   created_at: '2026-07-27T09:00:00+00:00'
   created_by: own_01936b40-0000-7000-8000-00000000ab01
   updated_at: '2026-07-27T09:00:00+00:00'
   updated_by: own_01936b40-0000-7000-8000-00000000ab01
 revision:
-  revision_id: rev_01936b40-0000-7000-8000-000000000002
+  revision_id: rev_01936b40-0000-7000-8000-000000000003
   revision_number: 1
   publication_state: published
   change_summary: Initial definition.
@@ -27,12 +25,11 @@ revision:
   created_by: own_01936b40-0000-7000-8000-00000000ab01
   published_at: '2026-07-27T09:00:00+00:00'
   published_by: own_01936b40-0000-7000-8000-00000000ab01
-  content_digest: sha256:569205c1060373d3a7d319432a343bbe66904511e5a8a25b1abef93192a11f99
+  content_digest: sha256:531a53318cfdb26e456e0d63d787c86442af1ee9ac99c6e00e56e0c2b804b5f5
   action:
     executor_type: executable
-    entrypoint: /opt/ops/bin/settlement-report.sh
-    arguments:
-    - --business-day
+    entrypoint: /opt/ops/bin/prune-scratch.sh
+    arguments: []
     working_directory: null
     environment: []
     stdin_policy: empty
@@ -41,7 +38,7 @@ revision:
     required_capabilities: []
   controls:
     timeout:
-      run_timeout_seconds: 1800
+      run_timeout_seconds: 600
       termination_grace_seconds: 30
     retry:
       max_attempts: 1
@@ -52,10 +49,10 @@ revision:
       retry_timeouts: false
     overlap: forbid
     max_concurrent: 1
-    activation_policy: require_control_state
+    activation_policy: continue_with_local_journal
   deployment:
-    strategy: cron_d_file
-    target: cron_d
-    classification: null
-    execution_user: settlement
-  activation_schedule: 30 17 * * 1-5
+    strategy: run_parts_directory
+    target: run_parts
+    classification: daily
+    execution_user: null
+  activation_schedule: null

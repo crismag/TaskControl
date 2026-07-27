@@ -32,6 +32,14 @@ from taskcontrol.common.errors import ValidationError
 from taskcontrol.domain.deployment.strategies import DeploymentStrategy
 from taskcontrol.ports.scheduler_management import DesiredArtefact
 
+DEFAULT_SYSTEM_USER = "root"
+"""User for a system-level entry that names none.
+
+``/etc/crontab`` and ``/etc/cron.d`` have a user field in every line. Omitting it makes cron
+read the first word of the command as the user, so the job silently never runs — which is
+why this is a default rather than an optional field.
+"""
+
 MARKER_PREFIX = "taskcontrol"
 """The word every managed marker contains. Deliberately distinctive."""
 
@@ -171,11 +179,28 @@ def _description_comment(artefact: DesiredArtefact) -> list[str]:
     return [f"# {collapsed}"]
 
 
+def _crontab_entry(artefact: DesiredArtefact) -> str:
+    """Render the single cron line for an artefact.
+
+    The user field is the trap. A user crontab has none — its owner *is* the user — while
+    ``/etc/crontab`` and ``/etc/cron.d`` have one in every line. Emit a line without it into
+    the system crontab and cron reads the first word of the command as the user, so the job
+    silently never runs.
+
+    So the field is decided by the target rather than by whether an execution user was
+    given, and a system-level target with no execution user gets ``root``, which is what
+    that target means by default.
+    """
+    schedule = _require_schedule(artefact)
+    if not artefact.deployment.target.expresses_execution_user:
+        return f"{schedule} {artefact.command}"
+    user = artefact.deployment.execution_user or DEFAULT_SYSTEM_USER
+    return f"{schedule} {user} {artefact.command}"
+
+
 def _render_crontab_region(artefact: DesiredArtefact) -> str:
     """Render a marked region for a crontab-style target."""
-    schedule = _require_schedule(artefact)
-    user = artefact.deployment.execution_user
-    entry = f"{schedule} {user} {artefact.command}" if user else f"{schedule} {artefact.command}"
+    entry = _crontab_entry(artefact)
 
     lines = [
         begin_marker(artefact),
@@ -193,14 +218,11 @@ def _render_cron_d_file(artefact: DesiredArtefact) -> str:
     verification tell a managed file from one an administrator wrote by hand and happened
     to name the same thing.
     """
-    schedule = _require_schedule(artefact)
-    user = artefact.deployment.execution_user or "root"
-
     lines = [
         begin_marker(artefact),
         _GENERATED_NOTICE,
         *_description_comment(artefact),
-        f"{schedule} {user} {artefact.command}",
+        _crontab_entry(artefact),
         end_marker(artefact.slug),
     ]
     return "\n".join(lines) + "\n"
@@ -443,15 +465,11 @@ def render_block_member(artefact: DesiredArtefact) -> str:
     Raises:
         ValidationError: If the artefact has no schedule.
     """
-    schedule = _require_schedule(artefact)
-    user = artefact.deployment.execution_user
-    entry = f"{schedule} {user} {artefact.command}" if user else f"{schedule} {artefact.command}"
-
     lines = [
         f"# {MARKER_PREFIX} task={artefact.slug} id={artefact.task_id} "
         f"digest={artefact.content_digest}",
         *_description_comment(artefact),
-        entry,
+        _crontab_entry(artefact),
     ]
     return "\n".join(lines) + "\n"
 

@@ -11,6 +11,7 @@ directories by a temporary directory, and the ``crontab`` command is never invok
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -638,3 +639,78 @@ def test_two_entries_in_the_block_claiming_one_task_are_refused(
 
     with pytest.raises(AmbiguousManagedContentError, match="two entries"):
         manager.plan([artefact])
+
+
+# -- the user field ---------------------------------------------------------------------
+#
+# A user crontab has no user field — its owner is the user. /etc/crontab and /etc/cron.d
+# have one in every line. Emit a line without it into a system-level target and cron reads
+# the first word of the command as the user, so the job silently never runs. That is the
+# worst shape of failure available here: the artefact is present, well-formed, and inert.
+
+
+def system_artefact(*, execution_user: str | None = None) -> DesiredArtefact:
+    """Return an artefact bound for the system crontab."""
+    return DesiredArtefact(
+        task_id=TaskId.generate(),
+        slug="nightly-backup",
+        deployment=DeploymentSpecification(
+            strategy=DeploymentStrategy.CRONTAB_BLOCK_PER_TASK,
+            target=DeploymentTarget.SYSTEM_CRONTAB,
+            execution_user=execution_user,
+        ),
+        command="/usr/bin/taskctl activate nightly-backup",
+        content_digest="sha256:aaaa",
+        schedule="0 2 * * *",
+    )
+
+
+def _directive(rendered: str) -> str:
+    """Return the one cron directive in a rendered artefact."""
+    directives = [
+        line
+        for line in rendered.splitlines()
+        if line and not line.startswith("#") and not line.startswith("set ")
+    ]
+    assert len(directives) == 1, directives
+    return directives[0]
+
+
+def test_a_system_crontab_entry_names_its_user() -> None:
+    """Without this, cron reads '/usr/bin/taskctl' as the user name and skips the line."""
+    assert _directive(render_artefact(system_artefact())) == (
+        "0 2 * * * root /usr/bin/taskctl activate nightly-backup"
+    )
+
+
+def test_a_system_crontab_entry_honours_an_explicit_user() -> None:
+    assert _directive(render_artefact(system_artefact(execution_user="settlement"))).startswith(
+        "0 2 * * * settlement "
+    )
+
+
+def test_a_user_crontab_entry_has_no_user_field() -> None:
+    """The mirror error: a user field here would be read as part of the command."""
+    assert _directive(render_artefact(artefact_for(DeploymentStrategy.CRONTAB_BLOCK_PER_TASK))) == (
+        "0 2 * * * /usr/bin/taskctl run nightly-backup"
+    )
+
+
+def test_a_cron_d_entry_names_its_user() -> None:
+    assert _directive(render_artefact(artefact_for(DeploymentStrategy.CRON_D_FILE))).startswith(
+        "0 2 * * * settlement "
+    )
+
+
+def test_the_single_block_follows_the_same_rule() -> None:
+    """The rule belongs to the target, so every crontab strategy must obey it."""
+    artefact = replace(
+        system_artefact(),
+        deployment=DeploymentSpecification(
+            strategy=DeploymentStrategy.CRONTAB_SINGLE_BLOCK,
+            target=DeploymentTarget.SYSTEM_CRONTAB,
+        ),
+    )
+    assert _directive(render_artefact(artefact)) == (
+        "0 2 * * * root /usr/bin/taskctl activate nightly-backup"
+    )

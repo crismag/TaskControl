@@ -1,25 +1,24 @@
 kind: TaskBundle
 schema_version: '1.2'
 task:
-  task_id: task_01936b40-0000-7000-8000-000000000002
-  name: Settlement report
-  slug: settlement-report
-  description: Publish the daily settlement reconciliation for the finance team. Runs as the settlement
-    service account, which is why it is deployed to /etc/cron.d — that is the only layout that can name
-    the user. An unrecorded run is worse than a missed one, so it refuses to run when TaskControl cannot
-    record it.
+  task_id: task_01936b40-0000-7000-8000-000000000001
+  name: Nightly database backup
+  slug: nightly-database-backup
+  description: Dump the trading database to /backups and prune anything older than 14 days. Missing a
+    night is worse than missing the record of it, so this runs even when TaskControl's control plane is
+    unreachable and reconciles afterwards.
   owner_id: own_01936b40-0000-7000-8000-00000000ab01
   lifecycle_state: active
-  active_revision_id: rev_01936b40-0000-7000-8000-000000000002
+  active_revision_id: rev_01936b40-0000-7000-8000-000000000001
   labels:
-  - finance
-  - regulated
+  - backup
+  - critical
   created_at: '2026-07-27T09:00:00+00:00'
   created_by: own_01936b40-0000-7000-8000-00000000ab01
   updated_at: '2026-07-27T09:00:00+00:00'
   updated_by: own_01936b40-0000-7000-8000-00000000ab01
 revision:
-  revision_id: rev_01936b40-0000-7000-8000-000000000002
+  revision_id: rev_01936b40-0000-7000-8000-000000000001
   revision_number: 1
   publication_state: published
   change_summary: Initial definition.
@@ -27,12 +26,11 @@ revision:
   created_by: own_01936b40-0000-7000-8000-00000000ab01
   published_at: '2026-07-27T09:00:00+00:00'
   published_by: own_01936b40-0000-7000-8000-00000000ab01
-  content_digest: sha256:569205c1060373d3a7d319432a343bbe66904511e5a8a25b1abef93192a11f99
+  content_digest: sha256:cd15e3a657738b3fad0c5b3d14997a3e36fbef22eaeb69c9a6403b487505704b
   action:
     executor_type: executable
-    entrypoint: /opt/ops/bin/settlement-report.sh
-    arguments:
-    - --business-day
+    entrypoint: /opt/ops/bin/backup-db.sh
+    arguments: []
     working_directory: null
     environment: []
     stdin_policy: empty
@@ -41,8 +39,8 @@ revision:
     required_capabilities: []
   controls:
     timeout:
-      run_timeout_seconds: 1800
-      termination_grace_seconds: 30
+      run_timeout_seconds: 7200
+      termination_grace_seconds: 60
     retry:
       max_attempts: 1
       backoff: exponential
@@ -52,10 +50,10 @@ revision:
       retry_timeouts: false
     overlap: forbid
     max_concurrent: 1
-    activation_policy: require_control_state
+    activation_policy: continue_with_local_journal
   deployment:
-    strategy: cron_d_file
-    target: cron_d
+    strategy: crontab_single_block
+    target: system_crontab
     classification: null
-    execution_user: settlement
-  activation_schedule: 30 17 * * 1-5
+    execution_user: null
+  activation_schedule: 0 2 * * *
