@@ -1,5 +1,8 @@
 # Ecosystem Boundaries
 
+- Document level: **0 — Identity**
+- Lifecycle state: Canonical
+
 ## Independent product model
 
 TaskControl is an independently installable and usable application. It may participate in larger platforms, but it is not a subsystem owned by any one of them.

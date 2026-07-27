@@ -1,5 +1,8 @@
 # Structured Review Playbook
 
+- Document level: **3 — Specifications**
+- Lifecycle state: Canonical
+
 ## Objective
 
 Review AI-generated work from multiple engineering perspectives before requesting human approval.

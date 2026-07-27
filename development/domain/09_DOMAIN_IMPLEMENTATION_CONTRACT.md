@@ -1,5 +1,8 @@
 # Domain Implementation Contract
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Purpose
 
 This contract directs Claude, Codex, and human contributors when translating the TaskControl domain handbook into code.
@@ -21,35 +24,9 @@ The domain should be organised so that:
 
 ## Minimum domain modules
 
-```text
-src/taskcontrol/
-  domain/
-    common/
-    tasks/
-    scheduling/
-    configuration/
-    execution/
-    deployment/
-    governance/
-    integrations/
-  application/
-    commands/
-    queries/
-    services/
-    ports/
-  infrastructure/
-    persistence/
-    executors/
-    schedulers/
-    secrets/
-    notifications/
-    monitoring/
-    inventory/
-  api/
-  cli/
-```
+The directory tree is **not defined here.** ADR 0015 fixes it, and `../engineering/repository/10_REPOSITORY_STRUCTURE.md` is its single normative statement.
 
-Exact folder names may vary, but dependency direction must remain.
+This contract requires only that the domain be decomposed into bounded modules covering: common value objects, tasks, scheduling, configuration, execution, deployment, governance, and integrations — each placed under `domain/` per ADR 0015, with ports owned inward and adapters implementing them outward.
 
 ## Required value objects
 

@@ -1,5 +1,8 @@
 # TaskControl Engineering Governance
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 This directory is the authoritative handbook for how TaskControl is engineered by humans and AI coding agents.
 
 It complements the product, architecture, and domain packages:
@@ -11,9 +14,11 @@ It complements the product, architecture, and domain packages:
 
 ## Authority
 
-When implementation convenience conflicts with this handbook, the handbook wins unless an explicit architecture decision record approves an exception.
+When implementation convenience conflicts with this handbook, the handbook wins unless an accepted ADR approves an exception.
 
-## Reading order
+This package does not rank itself against other packages. Precedence and the repository-wide reading order live in `../00_CONTEXT_INDEX.md` (ADR 0017).
+
+## Order within this package
 
 1. `00_ENGINEERING_CHARTER.md`
 2. `philosophy/01_ENGINEERING_LAWS.md`

@@ -1,5 +1,7 @@
 # ADR 0007: Scheduler Abstraction and Candidate Triggers
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
 - Status: Accepted
 - Date: 2026-07-26
 

@@ -1,5 +1,8 @@
 # Dependency Rules
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Core direction
 
 ```text

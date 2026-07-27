@@ -1,5 +1,8 @@
 # Definition of Done
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 A change is done only when all applicable dimensions are complete or explicitly deferred with a tracked reason.
 
 ## Product and domain

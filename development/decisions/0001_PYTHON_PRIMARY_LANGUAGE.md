@@ -1,5 +1,7 @@
 # ADR 0001: Python as the Primary Application Language
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
 - Status: Accepted
 - Date: 2026-07-26
 

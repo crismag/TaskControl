@@ -1,3 +1,11 @@
+> **STATUS: SUPERSEDED** — replaced by `development/prompts/IMPLEMENTATION_PROMPT.md`.
+>
+> Retained for historical reasoning. **Do not use for new implementation.**
+>
+> Superseded: 2026-07-26. Reason: One of three prompts giving contradictory build scope. Scope now lives in the blueprint, not in prompts (ADR 0017).
+
+---
+
 # Master Implementation Prompt
 
 Use this prompt with Codex, Claude, or another repository-capable coding agent.

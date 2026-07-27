@@ -1,5 +1,8 @@
 # Python and Application Standards
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## General expectations
 
 - Support the Python version declared by the project; do not rely on undeclared interpreter behaviour.

@@ -1,3 +1,11 @@
+> **STATUS: SUPERSEDED** — replaced by `development/prompts/IMPLEMENTATION_PROMPT.md` and Wave 1 of `development/10_IMPLEMENTATION_BLUEPRINT.md`.
+>
+> Retained for historical reasoning. **Do not use for new implementation.**
+>
+> Superseded: 2026-07-26. Reason: Domain-only scope now expressed as a blueprint wave rather than a separate prompt.
+
+---
+
 # TaskControl Domain Implementation Prompt
 
 You are the principal domain architect and senior Python engineer implementing TaskControl.

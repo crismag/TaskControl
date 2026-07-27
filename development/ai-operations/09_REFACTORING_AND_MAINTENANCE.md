@@ -1,5 +1,8 @@
 # Refactoring and Maintenance Playbook
 
+- Document level: **3 — Specifications**
+- Lifecycle state: Canonical
+
 ## Objective
 
 Improve structure, clarity, reliability, or performance without disguising behavioural changes or weakening architectural controls.

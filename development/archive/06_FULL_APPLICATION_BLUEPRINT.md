@@ -1,3 +1,11 @@
+> **STATUS: SUPERSEDED** — replaced by `development/10_IMPLEMENTATION_BLUEPRINT.md`.
+>
+> Retained for historical reasoning. **Do not use for new implementation.**
+>
+> Superseded: 2026-07-26. Reason: Predates the PR #7 repositioning: built around cron-artefact deployment in the first release, which ADR 0018 moved to Phase 2. Proposed a fourth repository layout, resolved by ADR 0015. Replaced by the wave-structured construction manual.
+
+---
+
 # Full Application Blueprint
 
 ## Objective

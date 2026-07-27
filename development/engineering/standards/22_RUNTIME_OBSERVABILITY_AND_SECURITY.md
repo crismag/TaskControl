@@ -1,5 +1,8 @@
 # Runtime, Observability, and Security Standards
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Execution runtime
 
 The runtime must preserve the domain distinctions between trigger, eligibility decision, execution, attempt, process result, expected-outcome evaluation, and final classification.

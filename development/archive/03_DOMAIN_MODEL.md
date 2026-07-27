@@ -1,3 +1,11 @@
+> **STATUS: SUPERSEDED** — replaced by `development/domain/` (the domain handbook) and ADR 0016.
+>
+> Retained for historical reasoning. **Do not use for new implementation.**
+>
+> Superseded: 2026-07-26. Reason: The outcome taxonomy here was one of three incompatible versions; ADR 0016 is now the sole authority. Aggregate definitions are superseded by the eleven-file domain handbook.
+
+---
+
 # Domain Model
 
 ## Aggregate roots

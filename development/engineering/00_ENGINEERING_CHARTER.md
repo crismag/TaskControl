@@ -1,5 +1,8 @@
 # Engineering Charter
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Mission
 
 Build TaskControl as a dependable operational execution platform whose behaviour is understandable, reviewable, testable, secure, and evolvable.

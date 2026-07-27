@@ -1,5 +1,8 @@
 # Lifecycles, Invariants, and Failure Semantics
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Purpose
 
 This document defines system-wide rules that cross individual domain specifications. These rules should become domain tests, database constraints where appropriate, and application-service guards.
@@ -18,6 +21,10 @@ This document defines system-wide rules that cross individual domain specificati
 10. High-risk state changes are authorised and audited.
 11. External side effects are idempotent or protected by explicit deduplication.
 12. Unknown state is represented honestly rather than guessed as success or failure.
+
+> **Vocabulary note.** The transition diagrams below name states illustratively. The normative
+> `ExecutionState` and `ExecutionOutcome` members, and their serialisation, are fixed by **ADR 0016**;
+> where a name here differs, ADR 0016 governs.
 13. Configuration resolution is deterministic and explainable.
 14. Adapter-specific concepts do not redefine the domain.
 15. Historical records remain interpretable after definitions change.

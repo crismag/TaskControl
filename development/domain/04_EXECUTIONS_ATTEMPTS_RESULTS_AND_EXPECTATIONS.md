@@ -1,5 +1,8 @@
 # Executions, Attempts, Results, and Expected Outcomes
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Purpose
 
 The execution domain records what TaskControl tried to run, where it ran, how it behaved, and whether the intended operational outcome occurred.
@@ -50,40 +53,17 @@ An Execution is the durable record for one requested run.
 - Attempt references.
 - Outcome evaluations.
 
-### Execution states
+### Execution states and terminal classifications
 
-- Requested.
-- PendingApproval.
-- Eligible.
-- Queued.
-- Starting.
-- Running.
-- Cancelling.
-- Completed.
-- Failed.
-- TimedOut.
-- Cancelled.
-- Skipped.
-- ConditionError.
-- OutcomeFailed.
-- InfrastructureFailed.
+The normative vocabulary — the `ExecutionState` lifecycle enum, the `ExecutionOutcome` terminal enum, their retry eligibility, the reason-code vocabulary, and the wire serialisation — is defined once, in **ADR 0016**. This handbook does not restate it.
 
-Implementations may use fewer internal states initially, but externally visible classification must preserve these meanings.
+What this handbook requires of any implementation of that vocabulary:
 
-### Terminal classifications
-
-- Succeeded: process and required outcomes succeeded.
-- Failed: process started and returned a failing technical result.
-- LaunchFailed: process could not be started.
-- TimedOut: runtime exceeded timeout and termination policy completed.
-- Cancelled: authorised cancellation prevented normal completion.
-- Skipped: policy deliberately prevented execution.
-- ConditionError: eligibility could not be determined.
-- OutcomeFailed: process result was technically acceptable but one or more required outcomes failed.
-- InfrastructureFailed: executor, agent, target, storage, or control-plane failure prevented reliable completion.
-- Unknown: final state cannot be proven; requires reconciliation.
-
-Never map all non-zero outcomes to a generic `failed` when the cause is known.
+- A lifecycle state and a terminal classification are different things and are stored separately.
+- Skip, block, launch failure, process failure, outcome failure, timeout, cancellation, infrastructure failure, and unproven state remain distinguishable at every externally visible surface: domain, persistence, API, CLI, UI, logs, metrics, and notifications.
+- An execution that never started is still a recorded execution.
+- Unknown is a legitimate classification requiring reconciliation, never a guess toward success or failure.
+- Never map all non-zero outcomes to a generic `failed` when the cause is known.
 
 ## ExecutionAttempt
 

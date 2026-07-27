@@ -1,5 +1,7 @@
 # ADR NNNN: Decision Title
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
 - Status: Proposed
 - Date: YYYY-MM-DD
 - Owners: TaskControl maintainers

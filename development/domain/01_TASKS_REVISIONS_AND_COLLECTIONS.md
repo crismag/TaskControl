@@ -1,5 +1,8 @@
 # Tasks, Revisions, and Collections
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Purpose
 
 The Task domain defines durable operational intent without tying that intent to one scheduler, operating system, runtime, or deployment mechanism.

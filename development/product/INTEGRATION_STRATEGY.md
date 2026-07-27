@@ -1,5 +1,8 @@
 # Integration Strategy
 
+- Document level: **0 — Identity**
+- Lifecycle state: Canonical
+
 ## Goal
 
 Allow external systems to use and extend TaskControl without depending on private implementation details.

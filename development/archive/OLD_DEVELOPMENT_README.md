@@ -1,3 +1,11 @@
+> **STATUS: SUPERSEDED** — replaced by `development/00_CONTEXT_INDEX.md`.
+>
+> Retained for historical reasoning. **Do not use for new implementation.**
+>
+> Superseded: 2026-07-26. Reason: Its reading order led readers through superseded documents before current ones and omitted 14 files. Reading order and precedence are now published only by the context index (ADR 0017).
+
+---
+
 # TaskControl Development Context
 
 This directory is the authoritative development workspace for human and AI-assisted implementation of TaskControl.

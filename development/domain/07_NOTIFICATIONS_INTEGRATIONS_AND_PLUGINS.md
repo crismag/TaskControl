@@ -1,5 +1,8 @@
 # Notifications, Integrations, and Plugins
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Purpose
 
 TaskControl must communicate with external systems without allowing external APIs to define the core domain. Integration contracts translate domain events and commands into scheduler, executor, monitoring, notification, inventory, and secret-provider operations.

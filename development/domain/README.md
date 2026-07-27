@@ -1,5 +1,8 @@
 # TaskControl Domain Handbook
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## Purpose
 
 This directory is the authoritative software requirements reference for TaskControl's business domain. It defines what each domain concept means, which responsibilities it owns, how it changes over time, and which invariants all implementations must preserve.
@@ -10,7 +13,7 @@ The handbook is intentionally independent of FastAPI, SQLAlchemy, React, cron, s
 
 > Users define operational intent. TaskControl resolves that intent into safe, observable, deployable execution.
 
-## Reading order
+## Order within this handbook
 
 1. `00_DOMAIN_LANGUAGE_AND_BOUNDARIES.md`
 2. `01_TASKS_REVISIONS_AND_COLLECTIONS.md`
@@ -124,14 +127,14 @@ Each domain specification describes:
 
 ## Authority and conflict resolution
 
-When implementation code conflicts with this handbook, the handbook represents intended behaviour unless a newer Architecture Decision Record explicitly supersedes it.
+This handbook does not rank itself against other packages. Precedence, the reading order, and the single-authority map live in `../00_CONTEXT_INDEX.md` (ADR 0017).
 
-When two handbook files appear to conflict:
+Within this handbook, when two files appear to conflict:
 
 1. Prefer the more specific domain file.
 2. Preserve the stricter safety or audit requirement.
-3. Record the ambiguity in `development/OPEN_QUESTIONS.md`.
-4. Do not silently invent new behaviour.
+3. Record the ambiguity in `../OPEN_QUESTIONS.md`.
+4. Do not silently invent new behaviour, and do not resolve it by writing a third file.
 
 ## Implementation guidance for coding agents
 
@@ -150,18 +153,8 @@ Coding agents must:
 
 ## Initial product scope
 
-The first complete local-first application should implement working vertical slices for:
+This handbook defines the domain in full, across all phases. **What is built now is decided by `../10_IMPLEMENTATION_BLUEPRINT.md`, not here.**
 
-- Task creation and revision
-- Manual and scheduled intent
-- Profiles and variables
-- Basic calendars and conditions
-- Local execution
-- Attempts, logs, results, and expected outcomes
-- Local target inventory
-- Cron deployment preview and guarded application
-- Execution history
-- Audit history
-- Notification hooks
+Concepts specified in this handbook whose implementation is deferred — target inventory, deployment plans, drift, generated artefacts, notification delivery beyond a logging sink — remain binding as *domain definitions* while their implementation waits (ADR 0018). Their boundaries must be preserved by Phase 1 code even though Phase 1 does not build them. See `../future/DEFERRED_CAPABILITIES.md` for the register and the constraints it places on Phase 1.
 
 Enterprise concepts may initially be represented by simple implementations, but their domain boundaries must be preserved.

@@ -1,5 +1,8 @@
 # TaskControl Architecture Decision Records
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 This directory contains the authoritative Architecture Decision Records (ADRs) for TaskControl.
 
 ADRs preserve the context, alternatives, rationale, consequences, and future review conditions behind significant technical choices. They complement the vision, architecture, domain, and engineering handbooks.
@@ -8,14 +11,7 @@ ADRs preserve the context, alternatives, rationale, consequences, and future rev
 
 Accepted ADRs are binding unless superseded by a later accepted ADR. Implementation code, prompts, reviews, and documentation must remain consistent with accepted decisions.
 
-When documents conflict, apply this order:
-
-1. Explicit product constraints and approved requirements
-2. Accepted ADRs
-3. Domain handbook
-4. Architecture documentation
-5. Engineering governance
-6. Implementation guidance and prompts
+The repository-wide precedence ladder is published once, in `../00_CONTEXT_INDEX.md` (ADR 0017). ADRs sit directly below Level 0 product constraints on it.
 
 An ADR may refine a lower-level document but must not silently contradict approved product intent.
 

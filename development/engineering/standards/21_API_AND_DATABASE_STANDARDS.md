@@ -1,5 +1,8 @@
 # API and Database Standards
 
+- Document level: **1 — Architecture**
+- Lifecycle state: Canonical
+
 ## API responsibilities
 
 The API is a transport adapter. Endpoints authenticate, validate transport input, call application services, and map results to stable response contracts.

@@ -1,5 +1,8 @@
 # Documentation and Traceability Playbook
 
+- Document level: **3 — Specifications**
+- Lifecycle state: Canonical
+
 ## Objective
 
 Keep implementation, engineering knowledge, and decision history aligned so future humans and agents do not reconstruct intent from code alone.

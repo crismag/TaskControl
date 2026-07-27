@@ -1,3 +1,11 @@
+> **STATUS: SUPERSEDED** — replaced by the per-wave acceptance gates in `development/10_IMPLEMENTATION_BLUEPRINT.md`.
+>
+> Retained for historical reasoning. **Do not use for new implementation.**
+>
+> Superseded: 2026-07-26. Reason: A single 167-item checklist for a whole-application generation attempt. Acceptance is now scoped per wave so it can actually be met and verified incrementally.
+
+---
+
 # Full Application Acceptance Checklist
 
 Use this checklist to review a full-application generation attempt. A checked item should be supported by working code, tests, or documentation—not only a placeholder.

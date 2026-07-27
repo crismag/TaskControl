@@ -1,5 +1,8 @@
 # Incremental Implementation Playbook
 
+- Document level: **3 — Specifications**
+- Lifecycle state: Canonical
+
 ## Objective
 
 Produce the smallest coherent change that delivers verified behaviour while preserving TaskControl's domain model and architectural boundaries.
