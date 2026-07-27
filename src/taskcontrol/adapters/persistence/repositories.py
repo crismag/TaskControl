@@ -14,10 +14,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from taskcontrol.adapters.persistence import mappers
-from taskcontrol.adapters.persistence.models import TaskRecord, TaskRevisionRecord
+from taskcontrol.adapters.persistence.models import (
+    ExecutionAttemptRecord,
+    ExecutionRecord,
+    TaskRecord,
+    TaskRevisionRecord,
+)
 from taskcontrol.common.errors import ConflictError, NotFoundError
-from taskcontrol.domain.common.identifiers import TaskId, TaskRevisionId
+from taskcontrol.domain.common.identifiers import ExecutionId, TaskId, TaskRevisionId
+from taskcontrol.domain.common.tracing import IdempotencyKey
 from taskcontrol.domain.common.values import RevisionNumber, Slug
+from taskcontrol.domain.execution.execution import Execution
+from taskcontrol.domain.execution.vocabulary import ExecutionState
 from taskcontrol.domain.tasks.lifecycle import TaskLifecycleState
 from taskcontrol.domain.tasks.revision import TaskRevision
 from taskcontrol.domain.tasks.task import Task
@@ -224,3 +232,130 @@ class SqlAlchemyTaskRevisionRepository:
             )
         ).one()
         return RevisionNumber(highest) if highest is not None else None
+
+
+class SqlAlchemyExecutionRepository:
+    """Stores executions and their attempts in a relational database.
+
+    Args:
+        session: The session this repository reads and writes through.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, execution: Execution) -> None:
+        """Store a new execution and any attempts it already has.
+
+        Args:
+            execution: The execution to store.
+
+        Raises:
+            ConflictError: If the identifier or idempotency key is already taken.
+        """
+        self._session.add(mappers.execution_to_record(execution))
+        for attempt in execution.attempts:
+            self._session.add(mappers.attempt_to_record(attempt))
+        try:
+            self._session.flush()
+        except IntegrityError as exc:
+            self._session.rollback()
+            raise ConflictError(
+                "An execution with this identifier or idempotency key already exists.",
+                details={
+                    "execution_id": str(execution.execution_id),
+                    "task_id": str(execution.task_id),
+                },
+            ) from exc
+
+    def get(self, execution_id: ExecutionId) -> Execution | None:
+        """Return an execution and its attempts."""
+        record = self._session.get(ExecutionRecord, execution_id.to_primitive())
+        if record is None:
+            return None
+        return mappers.record_to_execution(record, list(self._attempts_for(execution_id).values()))
+
+    def find_by_idempotency_key(self, task_id: TaskId, key: IdempotencyKey) -> Execution | None:
+        """Return the execution a previous identical request created, if any."""
+        record = self._session.scalars(
+            select(ExecutionRecord).where(
+                ExecutionRecord.task_id == task_id.to_primitive(),
+                ExecutionRecord.idempotency_key == key.to_primitive(),
+            )
+        ).one_or_none()
+        if record is None:
+            return None
+        return mappers.record_to_execution(
+            record, list(self._attempts_for(ExecutionId(record.execution_id)).values())
+        )
+
+    def save(self, execution: Execution) -> None:
+        """Persist an execution's current state and its attempts.
+
+        Safe to call repeatedly. Attempts already stored are updated in place rather than
+        duplicated, so a retry loop that saves after every attempt stays correct.
+
+        Args:
+            execution: The execution to persist.
+
+        Raises:
+            NotFoundError: If the execution does not exist.
+        """
+        record = self._session.get(ExecutionRecord, execution.execution_id.to_primitive())
+        if record is None:
+            raise NotFoundError(
+                "Execution not found.",
+                details={"execution_id": str(execution.execution_id)},
+            )
+
+        mappers.apply_execution_to_record(record, execution)
+
+        stored = self._attempts_for(execution.execution_id)
+        for attempt in execution.attempts:
+            key = attempt.attempt_id.to_primitive()
+            existing = stored.get(key)
+            if existing is None:
+                self._session.add(mappers.attempt_to_record(attempt))
+            else:
+                mappers.apply_attempt_to_record(existing, attempt)
+
+        self._session.flush()
+
+    def list_for_task(
+        self, task_id: TaskId, *, limit: int = 50, offset: int = 0
+    ) -> tuple[Execution, ...]:
+        """Return a task's executions, newest first."""
+        statement = (
+            select(ExecutionRecord)
+            .where(ExecutionRecord.task_id == task_id.to_primitive())
+            .order_by(ExecutionRecord.requested_at.desc(), ExecutionRecord.execution_id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return tuple(
+            mappers.record_to_execution(
+                record, list(self._attempts_for(ExecutionId(record.execution_id)).values())
+            )
+            for record in self._session.scalars(statement)
+        )
+
+    def list_unfinished(self) -> tuple[Execution, ...]:
+        """Return every execution that has not reached a terminal state."""
+        statement = select(ExecutionRecord).where(
+            ExecutionRecord.state != str(ExecutionState.FINISHED)
+        )
+        return tuple(
+            mappers.record_to_execution(
+                record, list(self._attempts_for(ExecutionId(record.execution_id)).values())
+            )
+            for record in self._session.scalars(statement)
+        )
+
+    def _attempts_for(self, execution_id: ExecutionId) -> dict[str, ExecutionAttemptRecord]:
+        """Return an execution's attempt records, keyed by identifier."""
+        records = self._session.scalars(
+            select(ExecutionAttemptRecord)
+            .where(ExecutionAttemptRecord.execution_id == execution_id.to_primitive())
+            .order_by(ExecutionAttemptRecord.attempt_number)
+        )
+        return {record.attempt_id: record for record in records}

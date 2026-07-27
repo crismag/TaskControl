@@ -48,6 +48,7 @@ make check
 .venv/bin/taskctl health          # this process's health and effective configuration
 .venv/bin/taskctl health --json   # machine-readable
 
+.venv/bin/taskctl run <task>      # run a task once, through the real runtime
 .venv/bin/taskctl server          # start the API
 make run-api                      # same, with autoreload
 ```
@@ -65,6 +66,25 @@ With the API running:
 | `http://127.0.0.1:8000/api/docs` | Interactive API documentation |
 
 `taskctl health` reports on the CLI process itself and makes no network call, so it works whether or not a server is running.
+
+## Running a task
+
+```bash
+.venv/bin/taskctl run daily-report        # by slug or by identifier
+.venv/bin/taskctl run daily-report --json
+```
+
+Exit code 0 means the execution succeeded; 1 means it did not. A skipped or blocked
+execution is **not** a success — it is a recorded reason the work did not happen.
+
+### Overlap locking is process-local
+
+`OverlapPolicy.FORBID` is honoured **within a single TaskControl process and nowhere
+wider** (ADR 0021). Two TaskControl processes, or an API and a separate worker, will not
+see each other's locks.
+
+Durable multi-process locking is a Wave 5 requirement. Until it ships, do not run more than
+one TaskControl process against one database and expect overlap protection.
 
 ## Logs
 

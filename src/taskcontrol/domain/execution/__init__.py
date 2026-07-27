@@ -6,6 +6,11 @@ status vocabulary.
 
 from __future__ import annotations
 
+from taskcontrol.domain.execution.execution import (
+    Execution,
+    ExecutionAttempt,
+    TriggerSource,
+)
 from taskcontrol.domain.execution.results import (
     BackoffStrategy,
     OverlapPolicy,
@@ -27,6 +32,8 @@ from taskcontrol.domain.execution.vocabulary import (
 
 __all__ = [
     "BackoffStrategy",
+    "Execution",
+    "ExecutionAttempt",
     "ExecutionOutcome",
     "ExecutionState",
     "OverlapPolicy",
@@ -38,6 +45,7 @@ __all__ = [
     "TerminationCause",
     "TerminationMode",
     "TimeoutPolicy",
+    "TriggerSource",
     "assert_legal_transition",
     "is_legal_transition",
 ]

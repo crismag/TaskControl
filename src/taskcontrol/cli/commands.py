@@ -12,6 +12,10 @@ from typing import Annotated
 import typer
 
 from taskcontrol import __version__
+from taskcontrol.application.runtime import RunRequest
+from taskcontrol.cli.wiring import build_runtime
+from taskcontrol.domain.common.tracing import IdempotencyKey
+from taskcontrol.domain.execution.execution import Execution, TriggerSource
 from taskcontrol.infrastructure.database import (
     create_database_engine,
     database_url,
@@ -122,6 +126,68 @@ def server(
 
     typer.echo(f"TaskControl API on http://{settings.api_host}:{settings.api_port}")
     run_api(settings, reload=reload)
+
+
+@app.command()
+def run(
+    ctx: typer.Context,
+    task: Annotated[str, typer.Argument(help="Task identifier or slug.")],
+    as_json: Annotated[bool, typer.Option("--json", help="Emit machine-readable output.")] = False,
+    idempotency_key: Annotated[
+        str | None,
+        typer.Option("--idempotency-key", help="Recognise a repeated request as the same run."),
+    ] = None,
+) -> None:
+    """Run a task once and report what happened.
+
+    Enters the same runtime the scheduler and the API use, so a manual run is classified
+    exactly as a scheduled one would be.
+
+    Exits 0 when the execution succeeded, 1 when it did not. A skipped or blocked
+    execution is not a success — it is a recorded reason the work did not happen.
+    """
+    settings = _settings(ctx)
+    runtime, resolve = build_runtime(settings)
+
+    task_id = resolve(task)
+    result = runtime.run(
+        RunRequest(
+            task_id=task_id,
+            trigger_source=TriggerSource.MANUAL,
+            idempotency_key=IdempotencyKey(idempotency_key) if idempotency_key else None,
+        )
+    )
+    execution = result.execution
+
+    if as_json:
+        typer.echo(json.dumps(execution.to_primitive()))
+    else:
+        _print_execution(execution, duplicate=result.was_duplicate)
+
+    raise typer.Exit(code=0 if result.succeeded else 1)
+
+
+def _print_execution(execution: Execution, *, duplicate: bool = False) -> None:
+    """Render an execution for a human."""
+    if duplicate:
+        typer.echo("This request matched an earlier one; showing the original execution.")
+
+    typer.echo(f"Execution  {execution.execution_id}")
+    typer.echo(f"Outcome    {execution.outcome}")
+    if execution.reason_code:
+        typer.echo(f"Reason     {execution.reason_code}")
+    typer.echo(f"Attempts   {execution.attempt_count}")
+    if execution.explanation:
+        typer.echo(f"\n{execution.explanation}")
+
+    for attempt in execution.attempts:
+        typer.echo(f"\n--- attempt {attempt.attempt_number} ({attempt.duration}) ---")
+        if attempt.result and attempt.result.exit_code is not None:
+            typer.echo(f"exit code: {attempt.result.exit_code}")
+        if attempt.stdout:
+            typer.echo(f"stdout:\n{attempt.stdout.rstrip()}")
+        if attempt.stderr:
+            typer.echo(f"stderr:\n{attempt.stderr.rstrip()}")
 
 
 @app.command()

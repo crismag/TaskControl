@@ -166,8 +166,14 @@ class SubprocessExecutor:
         the chatty jobs most likely to time out.
         """
         streams = _StreamCollector(process, request.output_limit_bytes)
-        termination = self._wait(process, request, started_monotonic)
-        streams.join()
+        try:
+            termination = self._wait(process, request, started_monotonic)
+            streams.join()
+        finally:
+            # Pipes are not closed by Popen on our behalf. Leaving them open leaks file
+            # descriptors, and a long-running TaskControl process would eventually run out
+            # — which is exactly the failure a scheduled system must not have.
+            _close_pipes(process)
 
         duration = _elapsed(started_monotonic)
         output = streams.output()
@@ -377,6 +383,20 @@ class _StreamCollector:
             stdout_truncated=self._stdout_truncated,
             stderr_truncated=self._stderr_truncated,
         )
+
+
+def _close_pipes(process: subprocess.Popen[str]) -> None:
+    """Close a process's pipes and reap it.
+
+    Args:
+        process: The process to clean up after.
+    """
+    for stream in (process.stdout, process.stderr, process.stdin):
+        if stream is not None:
+            with contextlib.suppress(OSError, ValueError):
+                stream.close()
+    with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+        process.wait(timeout=1)
 
 
 def _signal_group(process: subprocess.Popen[str], sig: signal.Signals) -> None:

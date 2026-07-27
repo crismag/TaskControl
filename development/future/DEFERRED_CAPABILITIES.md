@@ -74,6 +74,18 @@ Managed execution identities on one host; privilege-aware deployment; private an
 
 *Origin: `archive/01_SCOPE_AND_OPERATING_LEVELS.md` Level 2.*
 
+### Durable overlap locking
+
+Phase 1 locking guards a single TaskControl process (ADR 0021). Durable, multi-process
+locking is a **Wave 5 requirement**, not an optional improvement, and is listed with its six
+deliverables in `../10_IMPLEMENTATION_BLUEPRINT.md`.
+
+Until it ships, TaskControl must not claim overlap protection beyond one process in
+documentation, the UI, or an API response. Running two TaskControl processes against one
+database in Phase 1 gives no overlap protection.
+
+*Origin: ADR 0021, raised during Wave 3.*
+
 ## Phase 3 — Distributed execution
 
 ### Remote targets and workers
