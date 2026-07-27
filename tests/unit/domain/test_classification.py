@@ -15,7 +15,9 @@ from taskcontrol.domain.execution import (
     BackoffStrategy,
     ExecutionOutcome,
     ProcessResult,
+    ReasonCodes,
     RetryPolicy,
+    TerminationCause,
     TerminationMode,
     TimeoutPolicy,
 )
@@ -128,35 +130,79 @@ class TestClassification:
 
     def test_a_timeout_is_reported_as_a_timeout(self) -> None:
         result = classify_process_result(
-            ProcessResult(
-                termination=TerminationMode.SIGNALLED,
-                signal_number=9,
-                duration=Duration(120),
-                timed_out=True,
+            ProcessResult.terminated(
+                TerminationCause.RUN_TIMEOUT, signal_number=9, duration=Duration(120)
             )
         )
         assert result.outcome is ExecutionOutcome.TIMED_OUT
+        assert result.reason_code == ReasonCodes.TIMED_OUT_RUN_TIMEOUT_EXCEEDED
 
     def test_timeout_takes_precedence_over_the_signal_that_enforced_it(self) -> None:
         """Reporting SIGKILL instead of the timeout would hide the actual cause."""
         result = classify_process_result(
-            ProcessResult(
-                termination=TerminationMode.SIGNALLED,
-                signal_number=9,
-                duration=Duration(120),
-                timed_out=True,
+            ProcessResult.terminated(
+                TerminationCause.RUN_TIMEOUT, signal_number=9, duration=Duration(120)
             )
         )
         assert result.outcome is not ExecutionOutcome.FAILED
 
-    def test_an_unexpected_signal_is_a_failure(self) -> None:
+    def test_cancellation_is_distinguishable_from_a_timeout(self) -> None:
+        """Same signal, same mechanism, different meaning — only the cause separates them."""
+        cancelled = classify_process_result(
+            ProcessResult.terminated(
+                TerminationCause.CANCELLATION_REQUESTED, signal_number=9, duration=Duration(30)
+            )
+        )
+        timed_out = classify_process_result(
+            ProcessResult.terminated(
+                TerminationCause.RUN_TIMEOUT, signal_number=9, duration=Duration(30)
+            )
+        )
+        assert cancelled.outcome is ExecutionOutcome.CANCELLED
+        assert timed_out.outcome is ExecutionOutcome.TIMED_OUT
+        assert cancelled.reason_code != timed_out.reason_code
+
+    def test_a_superseded_run_is_cancelled_with_its_own_reason(self) -> None:
+        result = classify_process_result(
+            ProcessResult.terminated(
+                TerminationCause.SUPERSEDED, signal_number=15, duration=Duration(5)
+            )
+        )
+        assert result.outcome is ExecutionOutcome.CANCELLED
+        assert result.reason_code == ReasonCodes.CANCELLED_SUPERSEDED
+
+    def test_an_external_termination_is_distinguishable_from_a_crash(self) -> None:
+        """ "Was my job killed, or did it crash?" must be answerable from stored fields."""
+        killed = classify_process_result(
+            ProcessResult.terminated(
+                TerminationCause.EXTERNAL, signal_number=9, duration=ONE_SECOND
+            )
+        )
+        crashed = classify_process_result(ProcessResult.exited(1, ONE_SECOND))
+        assert killed.outcome is ExecutionOutcome.FAILED
+        assert killed.reason_code == ReasonCodes.FAILED_TERMINATED_EXTERNALLY
+        assert crashed.reason_code is None
+
+    def test_an_unrequested_signal_is_treated_as_external(self) -> None:
+        """TaskControl did not ask, so something outside it did."""
         result = classify_process_result(
             ProcessResult(
                 termination=TerminationMode.SIGNALLED, signal_number=11, duration=ONE_SECOND
             )
         )
         assert result.outcome is ExecutionOutcome.FAILED
+        assert result.reason_code == ReasonCodes.FAILED_TERMINATED_EXTERNALLY
         assert "signal 11" in result.explanation
+
+    def test_every_termination_cause_has_a_classification(self) -> None:
+        for cause in TerminationCause:
+            if cause is TerminationCause.NOT_TERMINATED:
+                continue
+            result = classify_process_result(
+                ProcessResult.terminated(cause, signal_number=15, duration=ONE_SECOND)
+            )
+            assert result.reason_code is not None, f"{cause} produced no reason code"
+            assert result.explanation, f"{cause} produced no explanation"
 
     def test_expectations_are_not_consulted_when_the_process_failed(self) -> None:
         """A failing process is FAILED; its expectations do not change the diagnosis."""
@@ -182,6 +228,21 @@ class TestClassification:
             ProcessResult.abandoned(ONE_SECOND),
         ):
             assert classify_process_result(result).explanation
+
+
+class TestDormantExpectationSeam:
+    """Wave 3 ships no expectation evaluation, and must not pretend otherwise."""
+
+    def test_success_means_process_success_only(self) -> None:
+        result = classify_process_result(ProcessResult.exited(0, ONE_SECOND))
+        assert result.outcome is ExecutionOutcome.SUCCEEDED
+
+    def test_outcome_failed_is_unreachable_without_real_evidence(self) -> None:
+        """Fabricating evidence to exercise this path would be a lie until Wave 4."""
+        result = classify_process_result(
+            ProcessResult.exited(0, ONE_SECOND), expectations=ExpectationEvidence()
+        )
+        assert result.outcome is not ExecutionOutcome.OUTCOME_FAILED
 
 
 class TestExpectationEvidence:

@@ -118,6 +118,11 @@ class ExecutionOutcome(StrEnum):
         return self in _OUTCOMES_REQUIRING_REASON
 
     @property
+    def permits_reason_code(self) -> bool:
+        """Whether a reason code may be recorded against this outcome (ADR 0020)."""
+        return self in _OUTCOMES_PERMITTING_REASON
+
+    @property
     def retry_eligibility(self) -> RetryEligibility:
         """Whether retrying this outcome is permitted, forbidden, or policy-dependent."""
         return _RETRY_ELIGIBILITY[self]
@@ -156,8 +161,19 @@ _OUTCOMES_REQUIRING_REASON: Final[frozenset[ExecutionOutcome]] = frozenset(
         ExecutionOutcome.BLOCKED,
         ExecutionOutcome.CONDITION_ERROR,
         ExecutionOutcome.INFRASTRUCTURE_FAILED,
+        # ADR 0020: a timeout and a cancellation both end a running process, and only the
+        # reason code says which — the operating system cannot tell them apart.
+        ExecutionOutcome.TIMED_OUT,
+        ExecutionOutcome.CANCELLED,
     }
 )
+
+_OUTCOMES_PERMITTING_REASON: Final[frozenset[ExecutionOutcome]] = _OUTCOMES_REQUIRING_REASON | {
+    # Optional: a process that simply exits non-zero has no cause beyond its exit status.
+    # When it was killed by a signal TaskControl did not send, that cause is knowable and
+    # a code is expected.
+    ExecutionOutcome.FAILED,
+}
 
 _RETRY_ELIGIBILITY: Final[dict[ExecutionOutcome, RetryEligibility]] = {
     ExecutionOutcome.SUCCEEDED: RetryEligibility.NEVER,
@@ -254,13 +270,13 @@ class ReasonCode:
                 "ReasonCode must be namespaced as '<outcome>.<reason>'.",
                 details={"reason_code": value},
             )
-        if namespace not in {outcome.value for outcome in _OUTCOMES_REQUIRING_REASON}:
+        if namespace not in {outcome.value for outcome in _OUTCOMES_PERMITTING_REASON}:
             raise ValidationError(
                 "ReasonCode namespace must be an outcome that carries reason codes.",
                 details={
                     "reason_code": value,
                     "permitted_namespaces": sorted(
-                        outcome.value for outcome in _OUTCOMES_REQUIRING_REASON
+                        outcome.value for outcome in _OUTCOMES_PERMITTING_REASON
                     ),
                 },
             )
@@ -345,6 +361,13 @@ class ReasonCodes:
         "infrastructure_failed.target_unreachable"
     )
     INFRASTRUCTURE_STORAGE_FAILED: Final = ReasonCode("infrastructure_failed.storage_failed")
+
+    # ADR 0020: at the operating-system level these three are the same event — a killed
+    # process. Only the runtime knows which one it asked for.
+    TIMED_OUT_RUN_TIMEOUT_EXCEEDED: Final = ReasonCode("timed_out.run_timeout_exceeded")
+    CANCELLED_REQUESTED_BY_USER: Final = ReasonCode("cancelled.requested_by_user")
+    CANCELLED_SUPERSEDED: Final = ReasonCode("cancelled.superseded")
+    FAILED_TERMINATED_EXTERNALLY: Final = ReasonCode("failed.terminated_externally")
 
     @classmethod
     def registered(cls) -> frozenset[ReasonCode]:

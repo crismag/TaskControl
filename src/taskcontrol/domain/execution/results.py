@@ -21,6 +21,32 @@ MAX_RETRY_ATTEMPTS = 100
 MAX_EXIT_CODE = 255
 
 
+class TerminationCause(StrEnum):
+    """Why a process was terminated, recorded when termination is *requested*.
+
+    At the operating-system level a timeout, a cancellation, and an external kill are the
+    same event: a signal arrives and the process dies. Only the runtime knows which one it
+    asked for, so the cause is recorded at the moment of the request rather than inferred
+    afterwards from the signal number — inferring would be a guess, and ADR 0008 forbids
+    guessing (ADR 0020).
+    """
+
+    NOT_TERMINATED = "not_terminated"
+    "The process ended on its own."
+
+    RUN_TIMEOUT = "run_timeout"
+    "The runtime enforced the configured timeout."
+
+    CANCELLATION_REQUESTED = "cancellation_requested"
+    "An authorised cancellation asked the process to stop."
+
+    SUPERSEDED = "superseded"
+    "A replace-overlap policy cancelled this run in favour of a newer one."
+
+    EXTERNAL = "external"
+    "A signal arrived that TaskControl did not send: an operator, a supervisor, the OOM killer."
+
+
 class TerminationMode(StrEnum):
     """How a process ended, from the runtime's point of view."""
 
@@ -46,7 +72,7 @@ class ProcessResult:
         exit_code: The exit status, when the process exited normally.
         signal_number: The terminating signal, when signalled.
         duration: Wall-clock time the process ran.
-        timed_out: Whether the runtime terminated it for exceeding its timeout.
+        termination_cause: Why the process was terminated, when it was.
         stdout_bytes: Size of captured standard output.
         stderr_bytes: Size of captured standard error.
         output_truncated: Whether captured output hit the configured size limit.
@@ -57,7 +83,7 @@ class ProcessResult:
     duration: Duration
     exit_code: int | None = None
     signal_number: int | None = None
-    timed_out: bool = False
+    termination_cause: TerminationCause = TerminationCause.NOT_TERMINATED
     stdout_bytes: int = 0
     stderr_bytes: int = 0
     output_truncated: bool = False
@@ -123,6 +149,29 @@ class ProcessResult:
         )
 
     @classmethod
+    def terminated(
+        cls, cause: TerminationCause, *, signal_number: int, duration: Duration, **extra: Any
+    ) -> Self:
+        """Build the result of a process that was terminated by a signal.
+
+        Args:
+            cause: Why it was terminated. Supplied by whoever requested the termination.
+            signal_number: The signal that ended it.
+            duration: How long it ran.
+            **extra: Further result fields, such as captured output sizes.
+
+        Returns:
+            The result.
+        """
+        return cls(
+            termination=TerminationMode.SIGNALLED,
+            signal_number=signal_number,
+            duration=duration,
+            termination_cause=cause,
+            **extra,
+        )
+
+    @classmethod
     def abandoned(cls, duration: Duration) -> Self:
         """Build the result of a process whose fate is unproven.
 
@@ -130,6 +179,16 @@ class ProcessResult:
         honest classification is ``UNKNOWN``, never a guessed failure.
         """
         return cls(termination=TerminationMode.ABANDONED, duration=duration)
+
+    @property
+    def timed_out(self) -> bool:
+        """Whether the runtime terminated this process for exceeding its timeout."""
+        return self.termination_cause is TerminationCause.RUN_TIMEOUT
+
+    @property
+    def was_terminated(self) -> bool:
+        """Whether something ended this process rather than letting it finish."""
+        return self.termination_cause is not TerminationCause.NOT_TERMINATED
 
     @property
     def started(self) -> bool:

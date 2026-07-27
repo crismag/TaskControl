@@ -11,6 +11,7 @@ from taskcontrol.domain.execution.results import (
     OverlapPolicy,
     ProcessResult,
     RetryPolicy,
+    TerminationCause,
     TerminationMode,
     TimeoutPolicy,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "ReasonCodes",
     "RetryEligibility",
     "RetryPolicy",
+    "TerminationCause",
     "TerminationMode",
     "TimeoutPolicy",
     "assert_legal_transition",
