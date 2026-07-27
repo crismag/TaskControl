@@ -63,6 +63,7 @@ Exactly one document answers each of these. No other document may restate the an
 | --- | --- |
 | Why does the product exist, and for whom? | `product/PRODUCT_VISION.md`, `product/USERS_AND_USE_CASES.md` |
 | What operational model must implementation preserve? | `product/OPERATIONAL_MODEL_AND_PRODUCT_INTENT.md` |
+| Why is the design shaped this way? | `product/PRODUCT_DESIGN_VISION.md` |
 | What is in and out of scope? | `product/PRODUCT_SCOPE.md` |
 | What is deferred, and to when? | `future/DEFERRED_CAPABILITIES.md` |
 | What is the delivery order? | `product/PRODUCT_ROADMAP.md` (phases) → `10_IMPLEMENTATION_BLUEPRINT.md` (waves) |
@@ -93,10 +94,11 @@ Exactly one document answers each of these. No other document may restate the an
 1. This index.
 2. `product/OPERATIONAL_MODEL_AND_PRODUCT_INTENT.md` — read this first; it explains what the
    rest of the product package is trying to productise.
-3. The remainder of `product/` in the order given by `product/README.md`.
-4. `architecture/ARCHITECTURE_OVERVIEW.md`.
-5. `domain/` in the order given by `domain/README.md`.
-6. `decisions/README.md`.
+3. `product/PRODUCT_DESIGN_VISION.md` — the conceptual design that follows from it.
+4. The remainder of `product/` in the order given by `product/README.md`.
+5. `architecture/ARCHITECTURE_OVERVIEW.md`.
+6. `domain/` in the order given by `domain/README.md`.
+7. `decisions/README.md`.
 
 ## File map
 
@@ -107,6 +109,7 @@ Exactly one document answers each of these. No other document may restate the an
 | `/README.md` | Public product description and entry point |
 | `product/README.md` | Product package index and invariant |
 | `product/OPERATIONAL_MODEL_AND_PRODUCT_INTENT.md` | The real operational model that inspired the product; historical and conceptual, and binding on implementation |
+| `product/PRODUCT_DESIGN_VISION.md` | The conceptual design vision from an operations-engineer perspective; why architectural decisions are made |
 | `product/PRODUCT_VISION.md` | Mission, value, principles, success criteria |
 | `product/PRODUCT_SCOPE.md` | Owned capabilities, non-goals, first-release boundary |
 | `product/PRODUCT_PHILOSOPHY.md` | Design philosophy and the product test |
