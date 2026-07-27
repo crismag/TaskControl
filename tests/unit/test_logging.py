@@ -7,8 +7,6 @@ handler rather than by calling the filter directly.
 from __future__ import annotations
 
 import json
-import logging
-from collections.abc import Iterator
 
 import pytest
 
@@ -19,6 +17,7 @@ from taskcontrol.infrastructure.logging import (
     get_correlation_context,
     get_logger,
     register_secret,
+    uvicorn_log_config,
 )
 from taskcontrol.infrastructure.settings import LogFormat, load_settings
 
@@ -141,9 +140,30 @@ def test_exception_info_is_rendered(capsys: pytest.CaptureFixture[str]) -> None:
     assert "ValueError: boom" in str(record["exception"])
 
 
-@pytest.fixture(autouse=True)
-def _reset_root_logger() -> Iterator[None]:
-    yield
-    root = logging.getLogger()
-    for handler in [h for h in root.handlers if h.get_name() == "taskcontrol"]:
-        root.removeHandler(handler)
+class TestUvicornLogConfig:
+    """Uvicorn's own loggers must not bypass TaskControl's handler.
+
+    Uvicorn ships `propagate = False` and its own handlers, which produced a process that
+    emitted JSON for application events and plain text for everything the server said.
+    """
+
+    def test_server_loggers_propagate_to_the_root_handler(self) -> None:
+        config = uvicorn_log_config(load_settings())
+        for name in ("uvicorn", "uvicorn.error"):
+            assert config["loggers"][name]["propagate"] is True
+            assert config["loggers"][name]["handlers"] == []
+
+    def test_uvicorn_access_logger_is_silenced(self) -> None:
+        """TaskControl emits its own access log from inside the correlation context."""
+        config = uvicorn_log_config(load_settings())
+        access = config["loggers"]["uvicorn.access"]
+        assert access["propagate"] is False
+        assert access["level"] == "CRITICAL"
+
+    def test_existing_loggers_are_not_disabled(self) -> None:
+        """Loggers created before uvicorn applies the config must keep working."""
+        assert uvicorn_log_config(load_settings())["disable_existing_loggers"] is False
+
+    def test_level_follows_settings(self) -> None:
+        config = uvicorn_log_config(load_settings(log_level="WARNING"))
+        assert config["loggers"]["uvicorn"]["level"] == "WARNING"

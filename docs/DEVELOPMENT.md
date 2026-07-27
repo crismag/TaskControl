@@ -47,8 +47,13 @@ make check
 .venv/bin/taskctl health          # this process's health and effective configuration
 .venv/bin/taskctl health --json   # machine-readable
 
-make run-api                      # API with autoreload on http://127.0.0.1:8000
+.venv/bin/taskctl server          # start the API
+make run-api                      # same, with autoreload
 ```
+
+`taskctl server` binds to `TASKCONTROL_API_HOST` and `TASKCONTROL_API_PORT`, so the
+address `taskctl health` reports is the address actually served. `--host` and `--port`
+override for a single run.
 
 With the API running:
 
@@ -59,6 +64,25 @@ With the API running:
 | `http://127.0.0.1:8000/api/docs` | Interactive API documentation |
 
 `taskctl health` reports on the CLI process itself and makes no network call, so it works whether or not a server is running.
+
+## Logs
+
+One process emits one format. Application events, server startup, and access records all
+go through the same handler, so the whole stream is parseable:
+
+```json
+{"timestamp":"...","level":"INFO","logger":"taskcontrol.api.access","message":"HTTP request",
+ "correlation_id":"trace-99","path":"/api/v1/health","http_method":"GET",
+ "http_status":200,"duration_ms":1.83,"client":"127.0.0.1"}
+```
+
+Every record produced while handling a request carries the same `correlation_id`, so one
+request is followable across the access log and anything the handler logged. Supply
+`X-Correlation-ID` to use your own identifier; it is echoed on the response.
+
+Set `TASKCONTROL_LOG_FORMAT=text` for readable local output. Secret values are redacted at
+the handler, and fields named like secrets are masked by key — but redaction is a backstop,
+not permission to log a secret.
 
 ## Everyday commands
 

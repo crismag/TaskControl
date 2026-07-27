@@ -35,7 +35,14 @@ _SENSITIVE_KEY_PATTERN: Final = re.compile(
 
 _RESERVED_RECORD_FIELDS: Final[frozenset[str]] = frozenset(
     logging.LogRecord("", 0, "", 0, "", None, None).__dict__
-) | {"asctime", "message", "taskcontrol_context"}
+) | {
+    "asctime",
+    "message",
+    "taskcontrol_context",
+    # Uvicorn attaches an ANSI-coloured duplicate of its own message. It is noise in a
+    # structured record and unreadable in a log aggregator.
+    "color_message",
+}
 
 # A mutable default would be shared by every context, so the empty case is None.
 _correlation_context: ContextVar[dict[str, str] | None] = ContextVar(
@@ -232,6 +239,40 @@ def configure_logging(settings: Settings) -> None:
         root.removeHandler(existing)
     root.addHandler(handler)
     root.setLevel(settings.log_level)
+
+
+def uvicorn_log_config(settings: Settings) -> dict[str, Any]:
+    """Return a uvicorn logging configuration that routes through TaskControl's handler.
+
+    Uvicorn ships ``uvicorn``, ``uvicorn.error``, and ``uvicorn.access`` with their own
+    handlers and ``propagate = False``, so by default none of the server's output reaches
+    the handler :func:`configure_logging` installs. The result is a process that emits
+    structured JSON for application events and plain text for everything the server says
+    — unparseable as a whole, and impossible to correlate.
+
+    This configuration removes uvicorn's handlers and lets its records propagate to the
+    root logger, so one process emits one format.
+
+    ``uvicorn.access`` is silenced entirely. TaskControl emits its own access log from the
+    request middleware, where correlation context is bound; uvicorn's equivalent is
+    emitted outside that context and could not carry a correlation identifier.
+
+    Args:
+        settings: Validated settings supplying the level.
+
+    Returns:
+        A :func:`logging.config.dictConfig` mapping for uvicorn's ``log_config``.
+    """
+    return {
+        "version": 1,
+        # Loggers created before uvicorn applies this config must keep working.
+        "disable_existing_loggers": False,
+        "loggers": {
+            "uvicorn": {"handlers": [], "level": settings.log_level, "propagate": True},
+            "uvicorn.error": {"handlers": [], "level": settings.log_level, "propagate": True},
+            "uvicorn.access": {"handlers": [], "level": "CRITICAL", "propagate": False},
+        },
+    }
 
 
 def get_logger(name: str) -> logging.Logger:

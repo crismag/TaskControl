@@ -6,6 +6,7 @@ cleared of TaskControl variables for every test.
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Iterator
 
@@ -38,3 +39,16 @@ def _clean_secret_registry() -> Iterator[None]:
 def settings() -> Settings:
     """Return default settings built without touching the environment."""
     return load_settings()
+
+
+@pytest.fixture(autouse=True)
+def _reset_root_logger() -> Iterator[None]:
+    """Remove TaskControl's log handler after each test.
+
+    Several suites call `configure_logging`. Without this, a handler installed by one test
+    keeps emitting during the next, and captured output stops being trustworthy.
+    """
+    yield
+    root = logging.getLogger()
+    for handler in [h for h in root.handlers if h.get_name() == "taskcontrol"]:
+        root.removeHandler(handler)

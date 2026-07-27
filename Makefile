@@ -41,8 +41,8 @@ test-integration: ## Run integration tests only
 
 check: lint typecheck test ## Everything CI runs. The gate.
 
-run-api: ## Start the API with autoreload
-	$(BIN)/uvicorn taskcontrol.apps.api.main:create_app --factory --reload
+run-api: ## Start the API with autoreload, bound per TASKCONTROL_API_HOST/PORT
+	$(BIN)/taskctl server --reload
 
 run-cli: ## Show CLI help
 	$(BIN)/taskctl --help
