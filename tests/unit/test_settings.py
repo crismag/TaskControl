@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
@@ -113,3 +115,63 @@ def test_describe_excludes_nothing_sensitive_today_and_is_stable() -> None:
 
 def test_settings_type_is_frozen_by_config() -> None:
     assert Settings.model_config["frozen"] is True
+
+
+class TestMisprefixedVariables:
+    """A plausible-but-wrong prefix must fail loudly, not be silently ignored.
+
+    Strict validation that only guards the correct prefix guards nothing: the failure it
+    exists to prevent is a variable that looks right, is wrong, and does nothing. This was
+    found the hard way — two tests written during R2 used ``TC_DATABASE_URL`` and passed
+    for the wrong reason, because the loader ignored it entirely.
+    """
+
+    def test_a_misprefixed_variable_is_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("TC_DATABASE_URL", "sqlite+pysqlite:///x.db")
+
+        with pytest.raises(ConfigurationError) as raised:
+            load_settings()
+
+        assert "TC_DATABASE_URL" in str(raised.value)
+
+    def test_the_message_names_the_correct_variable(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """An operator must be able to fix it from the message alone."""
+        monkeypatch.setenv("TC_DATA_DIR", str(tmp_path))
+
+        with pytest.raises(ConfigurationError) as raised:
+            load_settings()
+
+        assert "TASKCONTROL_DATA_DIR" in str(raised.value)
+
+    @pytest.mark.parametrize("prefix", ["TC_", "TASKCTL_", "TASK_CONTROL_"])
+    def test_every_plausible_wrong_prefix_is_caught(
+        self, prefix: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(f"{prefix}API_PORT", "9000")
+
+        with pytest.raises(ConfigurationError):
+            load_settings()
+
+    def test_an_unrelated_variable_is_left_alone(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """TC_HOME belongs to something else and is none of TaskControl's business.
+
+        Only a remainder that names a real setting is somebody meaning to configure this
+        product; rejecting every unrelated variable in a process environment would make
+        TaskControl unusable on a normal machine.
+        """
+        monkeypatch.setenv("TC_HOME", "/opt/somethingelse")
+        monkeypatch.setenv("TCL_LIBRARY", "/usr/share/tcl")
+
+        assert load_settings() is not None
+
+    def test_the_secret_value_is_never_echoed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A misprefixed database URL routinely embeds a password."""
+        monkeypatch.setenv("TC_DATABASE_URL", "postgresql+psycopg://user:hunter2@host/db")
+
+        with pytest.raises(ConfigurationError) as raised:
+            load_settings()
+
+        assert "hunter2" not in str(raised.value)
+        assert "hunter2" not in str(raised.value.details)

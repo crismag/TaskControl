@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import Engine, text
+from sqlalchemy.orm import Session, sessionmaker
 
 from taskcontrol.adapters.persistence.models import Base
 from taskcontrol.adapters.persistence.unit_of_work import UnitOfWork
@@ -85,6 +86,16 @@ def _drop_everything(engine: Engine) -> None:
         for table in reversed(Base.metadata.sorted_tables):
             connection.execute(text(f'DROP TABLE IF EXISTS "{table.name}" CASCADE'))
         connection.execute(text("DROP TABLE IF EXISTS alembic_version CASCADE"))
+
+
+@pytest.fixture
+def session_factory(engine: Engine) -> sessionmaker[Session]:
+    """Return a session factory bound to the current backend.
+
+    Needed by collaborators that own their own transaction rather than joining a unit of
+    work — the claim store is the first, deliberately (ADR 0023).
+    """
+    return create_session_factory(engine)
 
 
 @pytest.fixture

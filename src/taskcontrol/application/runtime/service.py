@@ -118,8 +118,8 @@ class RuntimeService:
             several: an execution's progress must be visible to an operator while it runs,
             which one long transaction would prevent.
         executors: Chooses the adapter for an action.
-        lock: Prevents overlapping executions. See ADR 0021 — the Phase 1 implementation
-            guards a single process only.
+        lock: Prevents overlapping executions. The production implementation is durable
+            (ADR 0023) and holds across processes; the runtime depends only on the port.
         clock: Supplies time, injected so a decision can be reproduced.
         owner_identity: How this runtime identifies itself when holding a lock.
     """

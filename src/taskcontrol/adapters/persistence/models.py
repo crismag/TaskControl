@@ -228,3 +228,30 @@ class ExecutionAttemptRecord(Base):
         CheckConstraint("attempt_number >= 1", name="ck_attempts_number_positive"),
         Index("ix_attempts_execution_id", "execution_id"),
     )
+
+
+class ClaimRecord(Base):
+    """How a durable claim is stored (ADR 0023).
+
+    One row per subject, and the row is **never deleted** — releasing sets the expiry to
+    now rather than removing anything. That is what keeps the fencing token monotonic: a
+    deleted row would restart the count, and a stalled owner holding token 7 would find
+    the subject back at token 1 and conclude it was still current.
+
+    Exclusivity is the primary key doing its job. Two processes racing to claim the same
+    subject cannot both insert it, and taking over a lapsed claim is a conditional update
+    that only one of them can win.
+    """
+
+    __tablename__ = "claims"
+
+    subject: Mapped[str] = mapped_column(String(200), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(200), nullable=False)
+    acquired_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
+    fencing_token: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        CheckConstraint("fencing_token >= 1", name="ck_claims_token_positive"),
+        Index("ix_claims_expires_at", "expires_at"),
+    )

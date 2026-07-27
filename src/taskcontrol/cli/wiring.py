@@ -12,12 +12,23 @@ from collections.abc import Callable
 
 from taskcontrol.adapters.clock import SystemClock
 from taskcontrol.adapters.executors import default_registry
-from taskcontrol.adapters.locking.no_overlap_protection import NoOverlapProtection
+from taskcontrol.adapters.locking.durable import DurableOverlapLock
+from taskcontrol.adapters.persistence.claim_store import SqlAlchemyClaimStore
 from taskcontrol.adapters.persistence.unit_of_work import UnitOfWork
+from taskcontrol.adapters.schedulers.cron import (
+    CronLayout,
+    CronSchedulerManagement,
+    FileCrontab,
+    FilesystemDirectory,
+    UserCrontab,
+)
+from taskcontrol.application.deployment import DeploymentService
 from taskcontrol.application.runtime import RuntimeService
 from taskcontrol.common.errors import NotFoundError, ValidationError
 from taskcontrol.domain.common.identifiers import TaskId
 from taskcontrol.domain.common.values import Slug
+from taskcontrol.domain.deployment.strategies import PeriodicClassification
+from taskcontrol.domain.tasks.task import Task
 from taskcontrol.infrastructure.database import (
     create_database_engine,
     create_session_factory,
@@ -29,12 +40,9 @@ from taskcontrol.infrastructure.settings import Settings
 def build_runtime(settings: Settings) -> tuple[RuntimeService, Callable[[str], TaskId]]:
     """Build a runtime and a task resolver.
 
-    No overlap protection is wired in. `ProcessLocalOverlapLock` would guard only this
-    process, which under cron-backed activation guards nothing (R1 Finding 1), and wiring it
-    here would let a caller believe `OverlapPolicy.FORBID` was being honoured when it was
-    not. `NoOverlapProtection` is honest instead: it never refuses, and it says so.
-
-    Durable claims arrive in R2 (ADR 0023) and replace this.
+    Overlap protection is durable (ADR 0023), which is what makes `OverlapPolicy.FORBID`
+    mean something under cron-backed activation. R1 measured the alternative: with a
+    process-local lock, two concurrent activations of one task both ran.
 
     Args:
         settings: Validated settings.
@@ -49,11 +57,12 @@ def build_runtime(settings: Settings) -> tuple[RuntimeService, Callable[[str], T
     def unit_of_work_factory() -> UnitOfWork:
         return UnitOfWork(session_factory)
 
+    clock = SystemClock()
     runtime = RuntimeService(
         unit_of_work_factory=unit_of_work_factory,
         executors=default_registry(),
-        lock=NoOverlapProtection(),
-        clock=SystemClock(),
+        lock=DurableOverlapLock(SqlAlchemyClaimStore(session_factory, clock)),
+        clock=clock,
     )
 
     def resolve(reference: str) -> TaskId:
@@ -85,3 +94,53 @@ def build_runtime(settings: Settings) -> tuple[RuntimeService, Callable[[str], T
         return task.task_id
 
     return runtime, resolve
+
+
+def build_deployment_service(settings: Settings) -> DeploymentService:
+    """Build a deployment service over this host's cron layout.
+
+    Every path comes from settings, because distributions disagree about them and a wrong
+    path must be something an operator can correct rather than a constant they patch.
+
+    Only the classifications whose run-parts directory actually exists are configured. A
+    host without ``/etc/cron.weekly`` should be told that plainly when something tries to
+    deploy there, rather than have TaskControl create a directory cron has never been told
+    to read.
+
+    Args:
+        settings: Validated settings.
+
+    Returns:
+        The deployment service.
+    """
+    engine = create_database_engine(database_url(settings))
+    session_factory = create_session_factory(engine)
+
+    run_parts = {
+        classification: FilesystemDirectory(
+            settings.run_parts_root / classification.run_parts_directory_name
+        )
+        for classification in PeriodicClassification
+        if (settings.run_parts_root / classification.run_parts_directory_name).is_dir()
+    }
+
+    layout = CronLayout(
+        user_crontab=UserCrontab(user=settings.cron_user or None, command=settings.cron_command),
+        system_crontab=FileCrontab(settings.cron_system_crontab),
+        cron_d=FilesystemDirectory(settings.cron_d_dir),
+        run_parts=run_parts,
+    )
+
+    def command_for(task: Task) -> str:
+        """Return the command line cron will run for a capability.
+
+        The slug rather than the identifier: an operator reading their own crontab should
+        recognise the job, and the slug is what they named it.
+        """
+        return f"{settings.taskctl_command} run {task.slug.to_primitive()}"
+
+    return DeploymentService(
+        unit_of_work_factory=lambda: UnitOfWork(session_factory),
+        scheduler=CronSchedulerManagement(layout),
+        command_builder=command_for,
+    )

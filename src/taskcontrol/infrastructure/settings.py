@@ -92,6 +92,42 @@ class Settings(BaseSettings):
     api_host: str = Field(default="127.0.0.1", description="Interface the API binds to.")
     api_port: int = Field(default=8000, ge=1, le=65535, description="Port the API binds to.")
 
+    # Cron layout. Every path is configurable because distributions disagree about them,
+    # and a wrong path must be a setting an operator can correct rather than a constant
+    # they have to patch (ADR 0026).
+    cron_command: str = Field(
+        default="crontab",
+        description="The crontab executable. The only supported way to change a user crontab.",
+    )
+    cron_user: str = Field(
+        default="",
+        description=(
+            "Whose user crontab to manage. Empty means the invoking user's own, which "
+            "needs no privilege. Naming another user does."
+        ),
+    )
+    cron_system_crontab: Path = Field(
+        default=Path("/etc/crontab"), description="The system crontab file."
+    )
+    cron_d_dir: Path = Field(
+        default=Path("/etc/cron.d"), description="Directory for one-file-per-task cron entries."
+    )
+    run_parts_root: Path = Field(
+        default=Path("/etc"),
+        description=(
+            "Directory containing the run-parts directories — cron.hourly, cron.daily, "
+            "and their siblings."
+        ),
+    )
+    taskctl_command: str = Field(
+        default="taskctl",
+        description=(
+            "How a deployed cron artefact invokes TaskControl. Must be resolvable from "
+            "cron's environment, which is far smaller than a login shell's — an absolute "
+            "path is usually the right answer on a real host."
+        ),
+    )
+
     @field_validator("log_level", mode="before")
     @classmethod
     def _normalise_log_level(cls, value: object) -> object:
@@ -162,6 +198,42 @@ class Settings(BaseSettings):
         }
 
 
+MISTAKEN_PREFIXES = ("TC_", "TASKCTL_", "TASK_CONTROL_")
+"""Prefixes an operator plausibly reaches for instead of ``TASKCONTROL_``.
+
+Strict validation that only guards the correct prefix guards nothing: the whole failure it
+exists to prevent is a variable that looks right, is wrong, and is silently ignored. A
+misprefixed variable is inert, and an inert configuration variable in a scheduled operation
+is exactly the class of silent failure this product exists to remove.
+"""
+
+
+def _misprefixed_environment_variables() -> dict[str, str]:
+    """Return variables that name a real setting under a wrong prefix.
+
+    Only variables whose remainder matches a known setting are reported. ``TC_HOME`` on a
+    developer's machine belongs to something else and is none of TaskControl's business;
+    ``TC_DATABASE_URL`` is unambiguously somebody meaning to configure TaskControl.
+
+    Returns:
+        Each offending variable mapped to the name it should have had.
+    """
+    known = {name.upper() for name in Settings.model_fields}
+    found: dict[str, str] = {}
+
+    for name in os.environ:
+        upper = name.upper()
+        for prefix in MISTAKEN_PREFIXES:
+            if not upper.startswith(prefix):
+                continue
+            remainder = upper[len(prefix) :]
+            if remainder in known:
+                found[name] = f"{ENV_PREFIX}{remainder}"
+            break
+
+    return dict(sorted(found.items()))
+
+
 def _unknown_environment_variables() -> list[str]:
     """Return prefixed environment variables that match no known setting.
 
@@ -191,10 +263,20 @@ def load_settings(**overrides: object) -> Settings:
         Validated settings.
 
     Raises:
-        ConfigurationError: If a prefixed environment variable is unrecognised, or if the
-            environment does not produce a valid configuration. The message names the
-            offending fields and never includes their values, which may be secret.
+        ConfigurationError: If a variable names a real setting under a wrong prefix, if a
+            correctly prefixed variable is unrecognised, or if the environment does not
+            produce a valid configuration. The message names the offending fields and
+            never includes their values, which may be secret.
     """
+    if misprefixed := _misprefixed_environment_variables():
+        corrections = "; ".join(
+            f"{wrong} -> use {right} instead" for wrong, right in misprefixed.items()
+        )
+        raise ConfigurationError(
+            f"Unsupported environment variable prefix. {corrections}.",
+            details={"misprefixed_variables": misprefixed, "env_prefix": ENV_PREFIX},
+        )
+
     if unknown := _unknown_environment_variables():
         raise ConfigurationError(
             "Unrecognised TaskControl environment variables.",

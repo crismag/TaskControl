@@ -4,18 +4,18 @@ A task with an overlap policy of ``FORBID`` promises that two of its executions 
 run at the same time. This port is how the runtime makes that promise without knowing what
 enforces it.
 
-**Read the guarantee carefully.** The Phase 1 implementation
-(:class:`taskcontrol.adapters.locking.ProcessLocalOverlapLock`) prevents overlap **only
-within a single TaskControl process**. It is not durable, not distributed, and not safe
-across multiple workers. Two TaskControl processes will not see each other's locks.
+The production implementation is
+:class:`taskcontrol.adapters.locking.durable.DurableOverlapLock`, which holds its claim in
+the database over the one claim primitive of ADR 0023. It protects across processes and
+across restarts — the only kind of protection worth anything under cron-backed activation,
+where every activation is a separate process.
 
-Durable, multi-process locking is a **requirement of Wave 5**, where row-level claims,
-owner identity, leases, and stale-lock recovery are designed together with the scheduler.
-Until that exists, no documentation, API response, or interface may claim overlap
-protection beyond one process. See **ADR 0021**.
+`ProcessLocalOverlapLock` remains as a test double for in-process unit tests. It guards a
+single process, which between cron activations is not weaker protection but none at all
+(measured in R1). It must never be wired into a production path, and a test asserts that.
 
-The runtime depends on this port and never on an implementation, so Wave 5 replaces an
-adapter rather than reworking orchestration.
+The runtime depends on this port and never on an implementation, which is what allowed the
+inert lock to be replaced without reworking any orchestration.
 """
 
 from __future__ import annotations

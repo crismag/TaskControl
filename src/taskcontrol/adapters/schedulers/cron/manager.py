@@ -13,7 +13,7 @@ on the host says which.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from taskcontrol.adapters.schedulers.cron.rendering import (
@@ -64,7 +64,7 @@ class CronLayout:
     user_crontab: CrontabText | None = None
     system_crontab: CrontabText | None = None
     cron_d: ManagedDirectory | None = None
-    run_parts: dict[PeriodicClassification, ManagedDirectory] | None = None
+    run_parts: Mapping[PeriodicClassification, ManagedDirectory] | None = None
 
     def crontab_for(self, target: DeploymentTarget) -> CrontabText | None:
         """Return the crontab backing a target, if one is configured."""

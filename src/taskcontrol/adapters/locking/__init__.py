@@ -1,19 +1,32 @@
 """Overlap lock implementations.
 
-There is currently **no production implementation**. `ProcessLocalOverlapLock` is a test
-double: it guards a single process, which under cron-backed activation means it guards
-nothing, because every activation is a separate process.
+`DurableOverlapLock` is the production implementation. It holds its claim in the database,
+so it protects across processes and restarts — which is the only kind of protection worth
+anything under cron-backed activation, where every activation is a separate process.
 
-Durable claims — one capability serving both scheduled overlap and work-item claiming — are
-delivered in R2 (ADR 0023). Until then TaskControl makes no overlap guarantee.
+`ProcessLocalOverlapLock` remains a test double for in-process unit tests, and
+`NoOverlapProtection` for composition that deliberately runs without protection. Neither
+may be wired into a production path (ADR 0023), and a test asserts that.
 """
 
 from __future__ import annotations
 
+from taskcontrol.adapters.locking.durable import (
+    DEFAULT_LEASE,
+    DurableOverlapLock,
+    process_owner_identity,
+)
 from taskcontrol.adapters.locking.no_overlap_protection import NoOverlapProtection
 from taskcontrol.adapters.locking.process_local import (
     SCOPE_DESCRIPTION,
     ProcessLocalOverlapLock,
 )
 
-__all__ = ["SCOPE_DESCRIPTION", "NoOverlapProtection", "ProcessLocalOverlapLock"]
+__all__ = [
+    "DEFAULT_LEASE",
+    "SCOPE_DESCRIPTION",
+    "DurableOverlapLock",
+    "NoOverlapProtection",
+    "ProcessLocalOverlapLock",
+    "process_owner_identity",
+]

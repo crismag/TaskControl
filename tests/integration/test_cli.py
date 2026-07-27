@@ -101,3 +101,38 @@ def test_invalid_configuration_exits_with_ex_config(
     monkeypatch.setenv("TASKCONTROL_LOG_LEVEL", "not-a-level")
     monkeypatch.setattr("sys.argv", ["taskctl", "version"])
     assert main() == EXIT_CONFIGURATION
+
+
+class TestUnreachableDatabase:
+    """R1 Finding 3: an operator saw forty-three lines of SQLAlchemy traceback.
+
+    Standards require that internal paths, vendor errors, and stack traces never reach a
+    user. The exit code was always right — cron saw a failure rather than a false success —
+    but what it printed was the library's problem, not the operator's.
+    """
+
+    def test_the_operator_sees_a_sentence_not_a_traceback(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setenv("TASKCONTROL_DATABASE_URL", "sqlite+pysqlite:////nonexistent/tc.db")
+        monkeypatch.setattr("sys.argv", ["taskctl", "run", "nightly-backup"])
+
+        exit_code = main()
+        output = capsys.readouterr()
+        combined = output.out + output.err
+
+        assert exit_code == EXIT_ERROR
+        assert "Traceback" not in combined
+        assert "sqlalchemy" not in combined.lower()
+        assert "site-packages" not in combined
+        assert "database" in combined.lower()
+
+    def test_it_still_fails_loudly(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """The half that already worked, and must keep working: cron must see a failure."""
+        monkeypatch.setenv("TASKCONTROL_DATABASE_URL", "sqlite+pysqlite:////nonexistent/tc.db")
+        monkeypatch.setattr("sys.argv", ["taskctl", "run", "nightly-backup"])
+
+        assert main() == EXIT_ERROR
+        capsys.readouterr()
