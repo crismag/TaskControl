@@ -71,6 +71,7 @@ Net change from the pre-canonicalization repository: 77 → 89 files. Nothing wa
 | File | State | Reason |
 | --- | --- | --- |
 | `/README.md` | Canonical | Public product description; updated to state the Phase 1 boundary and point at the context index |
+| `product/OPERATIONAL_MODEL_AND_PRODUCT_INTENT.md` | Canonical | **New.** The operational model that inspired the product, supplied by the owner. Historical and conceptual by design, and binding on implementation |
 | `product/README.md` | Canonical | Product package index; precedence claim replaced by a pointer to the context index |
 | `product/PRODUCT_VISION.md` | Canonical | Mission, value, principles. Sole authority for why the product exists |
 | `product/PRODUCT_SCOPE.md` | Canonical | Sole authority for in/out of scope and the first-release boundary |
