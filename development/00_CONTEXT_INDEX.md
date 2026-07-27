@@ -14,10 +14,11 @@ TaskControl is a standalone, general-purpose application for defining, schedulin
 
 ## Current state of the repository
 
-**Wave 0 complete.** The project installs, lints, type-checks, and tests green, and exposes
-version and health through the CLI and the API. No product behaviour beyond that yet.
+**Waves 0 and 1 complete.** The project installs and passes its gate; the product
+vocabulary exists as typed, framework-free domain code with portable YAML bundles and a
+published JSON Schema. Nothing is persisted or executed yet.
 
-The next action is Wave 1 (Domain core) of `10_IMPLEMENTATION_BLUEPRINT.md`. High-level product and architecture documentation is frozen: changes at Level 0 or Level 1 now require an ADR and an explicit supersession analysis (ADR 0017).
+The next action is Wave 2 (Persistence and migrations) of `10_IMPLEMENTATION_BLUEPRINT.md`. High-level product and architecture documentation is frozen: changes at Level 0 or Level 1 now require an ADR and an explicit supersession analysis (ADR 0017).
 
 ## Documentation levels
 

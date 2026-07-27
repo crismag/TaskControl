@@ -1,0 +1,59 @@
+kind: TaskBundle
+schema_version: '1.0'
+task:
+  task_id: task_01936b40-0000-7000-8000-000000000002
+  name: Daily Settlement Report
+  slug: daily-settlement-report
+  description: Generate the settlement reconciliation report. Runs on London business days; the report
+    must exist and be fresh by 06:30.
+  owner_id: own_01936b40-0000-7000-8000-00000000ab01
+  lifecycle_state: active
+  active_revision_id: rev_01936b40-0000-7000-8000-000000000002
+  labels: []
+  created_at: '2026-07-27T09:00:00+00:00'
+  created_by: own_01936b40-0000-7000-8000-00000000ab01
+  updated_at: '2026-07-27T09:00:00+00:00'
+  updated_by: own_01936b40-0000-7000-8000-00000000ab01
+revision:
+  revision_id: rev_01936b40-0000-7000-8000-000000000002
+  revision_number: 1
+  publication_state: published
+  change_summary: Initial published definition.
+  created_at: '2026-07-27T09:00:00+00:00'
+  created_by: own_01936b40-0000-7000-8000-00000000ab01
+  published_at: '2026-07-27T09:00:00+00:00'
+  published_by: own_01936b40-0000-7000-8000-00000000ab01
+  content_digest: sha256:df82cc265746b1cf361b64a74bbcca607cfd8ad584b9d0faf4a9d850ac813564
+  action:
+    executor_type: shell
+    entrypoint: /usr/bin/bash
+    arguments:
+    - /opt/tasks/settlement/generate_report.sh
+    - --region
+    - eu-west-1
+    working_directory: /opt/tasks/settlement
+    environment:
+    - name: REPORT_REGION
+      value: eu-west-1
+    - name: REPORT_FORMAT
+      value: parquet
+    - name: WAREHOUSE_PASSWORD
+      secret: env://WAREHOUSE_PASSWORD
+    stdin_policy: empty
+    output_capture: capture_all
+    use_raw_shell: false
+    required_capabilities:
+    - posix-shell
+  controls:
+    timeout:
+      run_timeout_seconds: 1200
+      termination_grace_seconds: 60
+    retry:
+      max_attempts: 3
+      backoff: exponential
+      base_delay_seconds: 60
+      max_delay_seconds: 600
+      retry_outcome_failures: false
+      retry_timeouts: false
+    overlap: forbid
+    max_concurrent: 1

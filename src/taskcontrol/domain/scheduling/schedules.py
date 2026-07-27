@@ -118,7 +118,10 @@ class Schedule(Protocol):
     tests, and replays all take the same path as live scheduling.
     """
 
-    timezone: TimeZoneName
+    @property
+    def timezone(self) -> TimeZoneName:
+        """The zone this schedule is expressed in."""
+        ...
 
     def next_occurrence_after(self, moment: UtcTimestamp) -> UtcTimestamp | None:
         """Return the first candidate strictly after a given instant.

@@ -1,0 +1,318 @@
+{
+  "$id": "https://taskcontrol.dev/schemas/task-bundle-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A portable task definition: one task and one of its revisions. Secret values never appear; secrets are carried as references.",
+  "properties": {
+    "kind": {
+      "const": "TaskBundle"
+    },
+    "revision": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "additionalProperties": false,
+          "properties": {
+            "arguments": {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 1024,
+              "type": "array"
+            },
+            "entrypoint": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "environment": {
+              "items": {
+                "additionalProperties": false,
+                "description": "Exactly one of 'value' or 'secret'. A secret value never appears in a bundle.",
+                "properties": {
+                  "name": {
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                    "type": "string"
+                  },
+                  "secret": {
+                    "description": "provider://path[#version]",
+                    "pattern": "^[a-z][a-z0-9_-]*://[^\\s]+$",
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "executor_type": {
+              "enum": [
+                "shell",
+                "python",
+                "executable",
+                "tcl",
+                "http",
+                "plugin"
+              ]
+            },
+            "output_capture": {
+              "enum": [
+                "capture_all",
+                "capture_tail",
+                "discard"
+              ]
+            },
+            "required_capabilities": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "stdin_policy": {
+              "enum": [
+                "empty",
+                "inherit"
+              ]
+            },
+            "use_raw_shell": {
+              "description": "Elevated risk. Interprets shell metacharacters; only valid for the shell executor and incompatible with separate arguments.",
+              "type": "boolean"
+            },
+            "working_directory": {
+              "description": "Absolute path. Parent traversal is rejected.",
+              "pattern": "^/",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "executor_type",
+            "entrypoint"
+          ],
+          "type": "object"
+        },
+        "change_summary": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "content_digest": {
+          "description": "Present only once published; absent on a draft.",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "controls": {
+          "additionalProperties": false,
+          "properties": {
+            "max_concurrent": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "overlap": {
+              "enum": [
+                "allow",
+                "forbid",
+                "queue",
+                "replace"
+              ]
+            },
+            "retry": {
+              "additionalProperties": false,
+              "properties": {
+                "backoff": {
+                  "enum": [
+                    "fixed",
+                    "linear",
+                    "exponential"
+                  ]
+                },
+                "base_delay_seconds": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "max_attempts": {
+                  "maximum": 100,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "max_delay_seconds": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "retry_outcome_failures": {
+                  "type": "boolean"
+                },
+                "retry_timeouts": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "timeout": {
+              "additionalProperties": false,
+              "properties": {
+                "run_timeout_seconds": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "termination_grace_seconds": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "publication_state": {
+          "enum": [
+            "draft",
+            "published",
+            "superseded",
+            "withdrawn"
+          ]
+        },
+        "published_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "published_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revision_id": {
+          "pattern": "^rev_",
+          "type": "string"
+        },
+        "revision_number": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "revision_id",
+        "revision_number",
+        "publication_state",
+        "created_at",
+        "created_by",
+        "action"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "description": "Bundle schema version.",
+      "examples": [
+        "1.0"
+      ],
+      "pattern": "^\\d+\\.\\d+$",
+      "type": "string"
+    },
+    "task": {
+      "additionalProperties": false,
+      "properties": {
+        "active_revision_id": {
+          "description": "Required when lifecycle_state is 'active'.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 4000,
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "lifecycle_state": {
+          "enum": [
+            "draft",
+            "active",
+            "suspended",
+            "retired",
+            "archived"
+          ]
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "owner_id": {
+          "pattern": "^own_",
+          "type": "string"
+        },
+        "slug": {
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task_",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "updated_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "task_id",
+        "name",
+        "slug",
+        "owner_id",
+        "created_at",
+        "created_by"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "kind",
+    "schema_version",
+    "task",
+    "revision"
+  ],
+  "title": "TaskControl Task Bundle",
+  "type": "object"
+}
