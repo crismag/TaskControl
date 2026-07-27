@@ -193,8 +193,16 @@ activate, inspect the outcome.
 
 - `ports/scheduler_management.py` — plan, apply, verify, remove against an external
   scheduler.
-- `adapters/schedulers/cron/` — deterministic rendering, managed-block identity, crontab
-  read, write, and read-back verification.
+- `adapters/schedulers/cron/` — deterministic rendering and read-back verification for the
+  four deployment strategies of ADR 0026: `run_parts_directory`, `crontab_block_per_task`,
+  `crontab_single_block`, and `cron_d_file`, across the `user_crontab`, `system_crontab`,
+  `cron_d`, and `run_parts` targets. Invalid strategy/target pairings are rejected at
+  validation, before anything is written.
+- Task **classification** (hourly, daily, weekly, monthly) supplying a default strategy, so
+  the common case requires no layout decision.
+- Local journal (ADR 0027): a fixed-shape dispatch record carrying **no captured output**,
+  line-delimited JSON, owner-readable. Journal write failure logs `CRITICAL` and exits
+  non-zero; there is no pre-write gate.
 - **Durable claim capability** (ADR 0023): one primitive, with the scheduled-overlap policy.
   This wave delivers it, because cron-backed activation cannot be called overlap-safe
   without it — R1 measured two concurrent activations both running.
@@ -222,6 +230,13 @@ activate, inspect the outcome.
   `blocked.overlap_lock_held` — proven by a multi-**process** test.
 - Both activation policies behave as ADR 0024 specifies with persistence stopped, and a
   journalled run reconciles into exactly one execution record.
+- Every deployment strategy passes the same contract tests: deterministic render, unmanaged
+  content byte-identical, idempotent re-apply, update, disable, remove, read-back
+  verification, ambiguous-identity rejection, and rollback.
+- A classified task with no explicit strategy deploys where its classification says.
+- A task whose slug cannot produce a valid run-parts or `cron.d` filename is rejected at
+  validation, not at deployment.
+- The journal record contains no captured output.
 
 **Gate:** an integration test that installs a managed entry into a temporary crontab, waits
 for or safely simulates activation, and asserts the recorded outcome — with no TaskControl

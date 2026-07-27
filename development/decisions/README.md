@@ -60,6 +60,8 @@ An ADR may refine a lower-level document but must not silently contradict approv
 - [0023 — Overlap Leases and Queue Claims Are One Capability](0023_DURABLE_CLAIM_AS_ONE_CAPABILITY.md)
 - [0024 — Activation Policy When Control State Is Unreachable](0024_ACTIVATION_POLICY_UNDER_DEGRADED_CONTROL_STATE.md)
 - [0025 — Operational Capability, Activation Policy, and Transport Independence](0025_OPERATIONAL_CAPABILITY_AND_ACTIVATION_MODEL.md)
+- [0026 — Cron Deployment Is a Configurable Strategy, Not One Layout](0026_CRON_DEPLOYMENT_STRATEGIES.md)
+- [0027 — TaskControl Logs Dispatch; The Runnable Logs Its Own Work](0027_LOGGING_RESPONSIBILITY_BOUNDARY.md)
 
 ## When an ADR is required
 

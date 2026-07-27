@@ -102,9 +102,12 @@ Proposed boundary for Wave 5, to be confirmed:
 
 ## Q5 — Managed cron block granularity
 
-- **Status:** Open
-- **Raised:** 2026-07-27, during the cron-backed realignment
-- **Blocks:** blueprint R2 design
+- **Status:** **Resolved** by ADR 0026 (2026-07-27) — pending removal
+- **Resolution:** the question assumed one layout must be chosen. It must not. Layout is a
+  **deployment strategy** carried by the task revision: run-parts directory, one block per
+  task, one block for all managed entries, or a `cron.d` file. A task's *classification*
+  (hourly, daily, weekly) supplies a default, so the common case needs no decision.
+- **Blocks:** nothing
 
 Should TaskControl manage **one block containing all managed entries**, or **one block per
 task**?
@@ -122,9 +125,12 @@ anything, since it determines the identity scheme and the fail-closed rule.
 
 ## Q6 — Which crontab TaskControl manages
 
-- **Status:** Open
-- **Raised:** 2026-07-27
-- **Blocks:** blueprint R2
+- **Status:** **Resolved** by ADR 0026 (2026-07-27) — pending removal
+- **Resolution:** all of them, from the start. Target is configurable — user crontab, system
+  crontab, `/etc/cron.d`, or a run-parts directory — and paired with a strategy. Invalid
+  pairings are rejected at validation with an explanation. Default is the user crontab,
+  which needs no privilege.
+- **Blocks:** nothing
 
 A user crontab, the system crontab, `/etc/cron.d` drop files, or a configurable choice? Each
 has different permission requirements, different `PATH` and shell semantics, and different
@@ -142,9 +148,16 @@ Must be decided explicitly rather than inherited from whatever R2 implements fir
 
 ## Q7 — Local journal format and location
 
-- **Status:** Open
-- **Raised:** 2026-07-27, as a consequence of ADR 0024
-- **Blocks:** blueprint R2 (the `continue_with_local_journal` path)
+- **Status:** **Resolved** by ADR 0027 (2026-07-27) — pending removal
+- **Resolution:** answering it surfaced a prior question — how much TaskControl should log at
+  all. It logs **dispatch and outcome**; the runnable logs its own work, to its own file,
+  with its own retention. The journal is therefore a small fixed-shape dispatch record
+  carrying **no captured output**, which is what makes it writable when things are already
+  degraded. Line-delimited JSON, owner-readable, under the data directory.
+  On journal write failure after the runnable has already run: log `CRITICAL`, exit non-zero
+  so cron reports it, and leave the gap visible. No pre-write gate — that would make a full
+  disk stop the backups this mode exists to protect.
+- **Blocks:** nothing
 
 ADR 0024 requires a local journal when a task runs with central persistence unavailable. It
 does not settle the format, the location, the rotation policy, or the permissions — and all

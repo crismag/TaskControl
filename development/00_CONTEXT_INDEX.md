@@ -80,6 +80,8 @@ Exactly one document answers each of these. No other document may restate the an
 | What is the primary domain concept? | ADR 0025 — the operational capability |
 | What activates recurring work? | ADR 0022 — cron, never TaskControl |
 | How do transports relate to the domain? | ADR 0025 — adapters over one application service |
+| How are cron artefacts laid out? | ADR 0026 — a per-task deployment strategy |
+| What does TaskControl log, and what does the task? | ADR 0027 — dispatch versus detail |
 | How is concurrent work claimed? | ADR 0023 — one durable claim capability |
 | What happens if control state is unreachable? | ADR 0024 — per-task activation policy |
 | What does a domain concept mean? | `domain/` |
@@ -144,7 +146,7 @@ Exactly one document answers each of these. No other document may restate the an
 | --- | --- |
 | `architecture/ARCHITECTURE_OVERVIEW.md` | Style, layers, runtime flow, topology, boundaries |
 | `domain/README.md` … `domain/09_*.md` | The domain handbook (11 files) |
-| `decisions/README.md`, `decisions/00NN_*.md` | ADRs 0001–0025 |
+| `decisions/README.md`, `decisions/00NN_*.md` | ADRs 0001–0027 |
 | `engineering/README.md` and subdirectories | Charter, laws, structure, dependency rules, standards, quality, governance, AI policy |
 
 ### Level 2 — Blueprint
