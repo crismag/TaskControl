@@ -25,6 +25,8 @@ from taskcontrol.domain.common.values import (
     Slug,
     UtcTimestamp,
 )
+from taskcontrol.domain.deployment.strategies import DeploymentSpecification
+from taskcontrol.domain.scheduling.schedules import CronExpression
 from taskcontrol.domain.tasks.actions import ActionSpecification
 from taskcontrol.domain.tasks.lifecycle import PublicationState, TaskLifecycleState
 from taskcontrol.domain.tasks.revision import (
@@ -98,6 +100,12 @@ class TaskBundle:
                 ),
                 "action": self.revision.action.to_primitive(),
                 "controls": self.revision.controls.to_primitive(),
+                "deployment": self.revision.deployment.to_primitive(),
+                "activation_schedule": (
+                    self.revision.activation_schedule.to_primitive()
+                    if self.revision.activation_schedule
+                    else None
+                ),
             },
         }
 
@@ -170,6 +178,14 @@ class TaskBundle:
             schema_version=schema_version,
             publication_state=PublicationState(revision_data.get("publication_state", "draft")),
             controls=ExecutionControls.from_primitive(revision_data.get("controls") or {}),
+            deployment=DeploymentSpecification.from_primitive(
+                revision_data.get("deployment") or {}
+            ),
+            activation_schedule=(
+                CronExpression(revision_data["activation_schedule"])
+                if revision_data.get("activation_schedule")
+                else None
+            ),
             change_summary=revision_data.get("change_summary", ""),
             published_at=(
                 UtcTimestamp.from_primitive(revision_data["published_at"])

@@ -24,11 +24,13 @@ from taskcontrol.domain.common.values import (
     SecretReference,
     UtcTimestamp,
 )
+from taskcontrol.domain.deployment.strategies import DeploymentSpecification
 from taskcontrol.domain.execution.results import (
     OverlapPolicy,
     RetryPolicy,
     TimeoutPolicy,
 )
+from taskcontrol.domain.scheduling.schedules import CronExpression
 from taskcontrol.domain.tasks.actions import ActionSpecification
 from taskcontrol.domain.tasks.lifecycle import (
     PublicationState,
@@ -70,10 +72,12 @@ class ActivationPolicy(StrEnum):
         return self is ActivationPolicy.CONTINUE_WITH_LOCAL_JOURNAL
 
 
-CURRENT_REVISION_SCHEMA_VERSION = SchemaVersion(1, 1)
+CURRENT_REVISION_SCHEMA_VERSION = SchemaVersion(1, 2)
 """The revision schema this build writes. Bump the minor for additive changes.
 
 1.1 added ``activation_policy``. Additive and defaulted, so a 1.0 bundle still loads.
+1.2 added ``deployment`` and ``activation_schedule``. Both defaulted, so a 1.1 bundle
+still loads — as an unscheduled task, which is what it was.
 """
 
 MAX_CHANGE_SUMMARY_LENGTH = 2000
@@ -192,6 +196,11 @@ class TaskRevision:
         publication_state: Draft, published, superseded, or withdrawn.
         action: What to execute.
         controls: Timeout, retry, and overlap governance.
+        deployment: Where and in what shape the managed cron artefact is written.
+        activation_schedule: When cron should activate this capability, for deployment
+            strategies that carry their own schedule. ``None`` means either an
+            unscheduled capability — on-demand only — or a run-parts deployment whose
+            directory supplies the cadence.
         change_summary: Why this revision exists.
         created_at: When the draft was created.
         created_by: Who created it.
@@ -209,6 +218,8 @@ class TaskRevision:
     schema_version: SchemaVersion = CURRENT_REVISION_SCHEMA_VERSION
     publication_state: PublicationState = PublicationState.DRAFT
     controls: ExecutionControls = field(default_factory=ExecutionControls)
+    deployment: DeploymentSpecification = field(default_factory=DeploymentSpecification)
+    activation_schedule: CronExpression | None = None
     change_summary: str = ""
     published_at: UtcTimestamp | None = None
     published_by: OwnerId | None = None
@@ -224,6 +235,23 @@ class TaskRevision:
             raise ValidationError(
                 "Change summary is too long.",
                 details={"maximum": MAX_CHANGE_SUMMARY_LENGTH},
+            )
+
+        # A run-parts artefact takes its cadence from the directory it lands in. Carrying a
+        # schedule as well would mean the revision states one thing and the deployment does
+        # another, and the deployment would win silently.
+        if (
+            self.activation_schedule is not None
+            and not self.deployment.strategy.carries_its_own_schedule
+        ):
+            raise ValidationError(
+                "A run-parts deployment takes its cadence from the directory, so this "
+                "revision's schedule would be ignored. Remove the schedule, or choose a "
+                "strategy that carries one.",
+                details={
+                    "strategy": str(self.deployment.strategy),
+                    "activation_schedule": self.activation_schedule.to_primitive(),
+                },
             )
 
         if self.publication_state.is_frozen:
@@ -258,6 +286,10 @@ class TaskRevision:
             "schema_version": self.schema_version.to_primitive(),
             "action": self.action.to_primitive(),
             "controls": self.controls.to_primitive(),
+            "deployment": self.deployment.to_primitive(),
+            "activation_schedule": (
+                self.activation_schedule.to_primitive() if self.activation_schedule else None
+            ),
         }
 
     def compute_digest(self) -> ContentDigest:

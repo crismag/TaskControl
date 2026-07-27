@@ -97,6 +97,13 @@
           ],
           "type": "object"
         },
+        "activation_schedule": {
+          "description": "Five-field cron expression. Absent for on-demand capabilities, and for run-parts deployment, where the directory supplies the cadence.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "change_summary": {
           "maxLength": 2000,
           "type": "string"
@@ -187,6 +194,47 @@
         "created_by": {
           "type": "string"
         },
+        "deployment": {
+          "additionalProperties": false,
+          "properties": {
+            "classification": {
+              "description": "A coarse cadence that supplies a default strategy and target, and which run-parts directory the artefact belongs in.",
+              "enum": [
+                "hourly",
+                "daily",
+                "weekly",
+                "monthly",
+                null
+              ]
+            },
+            "execution_user": {
+              "description": "The user the work runs as. Only the system crontab and /etc/cron.d can express this.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "strategy": {
+              "description": "The shape of the managed cron artefact.",
+              "enum": [
+                "run_parts_directory",
+                "crontab_block_per_task",
+                "crontab_single_block",
+                "cron_d_file"
+              ]
+            },
+            "target": {
+              "description": "Where the artefact is written. Not every strategy may be written to every target; an invalid pairing is rejected at validation.",
+              "enum": [
+                "user_crontab",
+                "system_crontab",
+                "cron_d",
+                "run_parts"
+              ]
+            }
+          },
+          "type": "object"
+        },
         "publication_state": {
           "enum": [
             "draft",
@@ -230,7 +278,7 @@
     "schema_version": {
       "description": "Bundle schema version.",
       "examples": [
-        "1.1"
+        "1.2"
       ],
       "pattern": "^\\d+\\.\\d+$",
       "type": "string"

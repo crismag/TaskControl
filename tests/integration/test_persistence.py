@@ -23,7 +23,13 @@ from taskcontrol.domain.common import (
     TaskRevisionId,
     UtcTimestamp,
 )
+from taskcontrol.domain.deployment.strategies import (
+    DeploymentSpecification,
+    DeploymentStrategy,
+    DeploymentTarget,
+)
 from taskcontrol.domain.execution import RetryPolicy, TimeoutPolicy
+from taskcontrol.domain.scheduling.schedules import CronExpression
 from taskcontrol.domain.tasks import (
     ActionSpecification,
     EnvironmentBinding,
@@ -283,6 +289,36 @@ class TestRevisionRepository:
             assert stored is not None
             assert stored.content_digest == revision.content_digest
             assert stored.compute_digest() == revision.compute_digest()
+
+    def test_deployment_and_schedule_survive_storage(self, unit_of_work: UnitOfWork) -> None:
+        """Where a capability deploys is part of its execution meaning, not decoration.
+
+        It is inside the digested content, so losing it in storage would not merely drop a
+        setting — it would silently change what the stored revision digests to, and
+        deployment integrity is built on that digest.
+        """
+        task = a_task()
+        revision = a_revision(
+            task,
+            deployment=DeploymentSpecification(
+                strategy=DeploymentStrategy.CRON_D_FILE,
+                target=DeploymentTarget.CRON_D,
+                execution_user="settlement",
+            ),
+            activation_schedule=CronExpression("30 17 * * 1-5"),
+        ).publish(published_by=ACTOR, published_at=NOW)
+
+        with unit_of_work as uow:
+            uow.tasks.add(task)
+            uow.revisions.add(revision)
+            uow.commit()
+
+        with unit_of_work as uow:
+            stored = uow.revisions.get(revision.revision_id)
+            assert stored is not None
+            assert stored.deployment == revision.deployment
+            assert stored.activation_schedule == revision.activation_schedule
+            assert stored.compute_digest() == revision.content_digest
 
     def test_rejects_a_duplicate_revision_number(self, unit_of_work: UnitOfWork) -> None:
         """Revision numbers never repeat, and the database makes that impossible."""
