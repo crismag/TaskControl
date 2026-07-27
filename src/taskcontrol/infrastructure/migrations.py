@@ -24,6 +24,23 @@ from taskcontrol.infrastructure.logging import get_logger
 logger = get_logger(__name__)
 
 
+def _first_line(message: str, limit: int = 300) -> str:
+    """Return the first meaningful line of a driver error, bounded.
+
+    A SQLAlchemy error embeds the whole failing statement. The first line names the actual
+    problem; the rest is noise in a structured log field.
+
+    Args:
+        message: The exception text.
+        limit: Maximum characters to keep.
+
+    Returns:
+        A single trimmed line.
+    """
+    first = next((line.strip() for line in message.splitlines() if line.strip()), "")
+    return first[:limit]
+
+
 def _repository_root() -> Path:
     """Return the directory holding ``migrations/``.
 
@@ -123,9 +140,16 @@ def upgrade_to_head(engine: Engine) -> str | None:
             config.attributes["connection"] = connection
             command.upgrade(config, "head")
     except Exception as exc:
+        # The driver message is included because a migration failure without its cause
+        # forces the operator to reproduce it by hand. Database URLs are never included;
+        # a URL may carry a password, a constraint violation does not.
         raise PermanentInfrastructureError(
             "Database migration failed. The database was left unchanged.",
-            details={"from_revision": starting, "error": type(exc).__name__},
+            details={
+                "from_revision": starting,
+                "error": type(exc).__name__,
+                "cause": _first_line(str(exc)),
+            },
         ) from exc
 
     finished = current_revision(engine)
@@ -160,6 +184,10 @@ def downgrade_to(engine: Engine, revision: str) -> str | None:
     except Exception as exc:
         raise PermanentInfrastructureError(
             "Database downgrade failed.",
-            details={"target_revision": revision, "error": type(exc).__name__},
+            details={
+                "target_revision": revision,
+                "error": type(exc).__name__,
+                "cause": _first_line(str(exc)),
+            },
         ) from exc
     return current_revision(engine)

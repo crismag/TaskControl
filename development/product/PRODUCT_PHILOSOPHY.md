@@ -2,26 +2,57 @@
 
 - Document level: **0 — Identity**
 - Governed by: `PRODUCT_VISION.md`, `PRODUCT_SCOPE.md`
-- Related: ADR 0016 (outcomes), ADR 0018 (execution before generation)
+- Related: ADR 0016 (outcomes), ADR 0022 (cron owns activation)
 
 ## Purpose
 
 TaskControl exists to turn operational intent into reliable, observable, governable automated work.
 
-The product must not be designed as a graphical editor for cron syntax. Cron is one possible execution target among several, and in Phase 1 it is not a target at all. The user should describe what must happen, when it should happen, where it should run, under what conditions it is allowed to run, and what outcome proves success. TaskControl is responsible for turning that intent into execution and operational control.
+The product must not be designed as a graphical editor for cron syntax. Cron is the
+dependable substrate underneath, not the interface on top: a user should never need to write
+a cron expression for ordinary authoring, and should never be prevented from reading or
+overriding the artefact TaskControl generates. The user should describe what must happen, when it should happen, where it should run, under what conditions it is allowed to run, and what outcome proves success. TaskControl is responsible for turning that intent into execution and operational control.
 
-> The user defines intent. TaskControl resolves it into safe, observable execution.
+> **TaskControl automates the work of production engineers, not just the execution of scripts.**
 
-This sentence is the primary product rule. Every feature, API, screen, schema, adapter, and workflow should be evaluated against it.
+This is the primary product rule. Every feature, API, screen, schema, adapter, and workflow should be evaluated against it.
 
-## Two delivery modes, in order
+Production engineers do not think in queues, schedulers, and runtimes. They think:
 
-TaskControl resolves intent into execution in two ways. ADR 0018 fixes their order.
+- "Run this tomorrow after market close."
+- "Roll this out to the production fleet."
+- "Tell me if anything fails."
+- "Generate the daily report."
+- "Retry the failed reconciliation."
 
-1. **TaskControl executes** (Phase 1). The internal scheduler evaluates eligibility and the TaskControl runtime runs the work directly. This is the default and it is what makes the product standalone.
-2. **TaskControl generates** (Phase 2). Scheduler adapters compile a task revision into native artefacts — a cron entry, a systemd timer — which a host scheduler executes, calling back into the same runtime.
+TaskControl should let them express those operational intentions and handle the mechanics underneath. A feature that makes the mechanics more visible rather than less is usually the wrong feature.
 
-The second mode is an additional delivery channel for an already-proven task, never a separate product. Both modes share one domain model, one runtime, and one outcome vocabulary.
+Restated for implementation: *the user defines intent; TaskControl resolves it into safe, observable execution.*
+
+## Small, portable capabilities
+
+Operational systems evolve into many small executable units, not one monolithic automation application. TaskControl encourages that and manages the lifecycle around it.
+
+A capability package should carry everything needed to understand and execute it:
+
+```text
+backup/
+    task.yaml
+    run.sh
+    README.md
+    config/
+    tests/
+```
+
+Each capability should be independently executable, testable, deployable, observable, and documented. TaskControl **discovers** packages rather than requiring application code changes — which is why drop-in discovery is a design position, not a convenience feature.
+
+## How intent becomes activation
+
+TaskControl renders a task's schedule into a **managed artefact for an external scheduler**, and that scheduler activates the work. Cron is the first and primary target (ADR 0022); systemd timers and platform schedulers follow as further adapters.
+
+TaskControl does not activate recurring work itself. It never runs a timer, a polling loop, or an always-on scheduler process. A generated artefact invokes a short-lived TaskControl wrapper, which applies the execution services — locking, timeout, capture, classification — and exits.
+
+Run-now exists for administration and validation. It is not the scheduled-job workflow.
 
 ## What users should think about
 
@@ -58,7 +89,8 @@ The domain model must remain independent from any one scheduler or operating sys
 
 The simplest useful experience should be possible without understanding enterprise architecture.
 
-A personal user should be able to create a task, select a schedule, test it locally, install it, and view execution history. The same task may later gain reusable profiles, calendars, run conditions, multiple targets, approvals, monitoring expectations, enterprise ownership, and delegated administration.
+A personal user should be able to create a task, select a schedule, test it, install the
+managed cron entry, and view execution history — without opening a crontab. The same task may later gain reusable profiles, calendars, run conditions, multiple targets, approvals, monitoring expectations, enterprise ownership, and delegated administration.
 
 Complexity should appear only when the user's operating context requires it.
 
@@ -70,7 +102,8 @@ These distinctions must survive into the domain model, API, UI, logs, metrics, a
 
 ## Generated artefacts are inspectable
 
-This section governs Phase 2 generation and the Phase 1 artefacts that precede it — resolved configuration snapshots, validation output, and execution records.
+Managed cron artefacts, resolved configuration snapshots, validation output, and execution
+records are all covered by this rule.
 
 Generated content should be deterministic where practical, versioned, diffable, validated before deployment, attributable to a task revision, reproducible from stored intent, and safe to preview without applying changes.
 
@@ -131,6 +164,41 @@ Before accepting a major feature, ask:
 7. Can generated output be inspected and reproduced?
 
 When the answer is no, reconsider the design.
+
+## The recognition test
+
+Beyond the feature-level product test, one question governs whether TaskControl is
+succeeding at all:
+
+> **Can a production engineer who has never seen TaskControl immediately recognise it as a
+> platform that automates the work they currently perform manually?**
+
+Not "can they learn it". Not "is it well engineered". **Recognise** — in the first few
+minutes, without a guided tour.
+
+That means they should see their own working life reflected back:
+
+- a crontab they recognise, and what TaskControl would do to it;
+- a job that failed at 3am and the record explaining why;
+- the schedule change they made last Tuesday, and who approved it;
+- the runbook that currently lives in a wiki nobody updates;
+- the queue of requests some application dumps into a database table.
+
+If instead they see task definitions, revision lifecycles, execution outcomes, and
+port-and-adapter boundaries, the product is describing its own implementation rather than
+their job. Those things must exist; they must not be what a production engineer meets first.
+
+### Applying it
+
+The test is failed, not merely unmet, when:
+
+- a reader must understand the architecture before understanding the point;
+- the examples demonstrate the data model rather than an operational problem;
+- documentation leads with governance vocabulary instead of an engineer's workflow;
+- the shortest path to "I see what this does" runs through a design document.
+
+It is passed when the shortest honest demonstration is a before-and-after of something the
+engineer already maintains.
 
 ## Where this document does not decide
 

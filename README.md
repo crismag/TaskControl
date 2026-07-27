@@ -1,22 +1,30 @@
 # TaskControl
 
-TaskControl is a standalone application for defining, scheduling, executing, monitoring, and governing automated work.
+TaskControl is an **operational automation platform**. It manages the full lifecycle of operational capabilities — definition, deployment, activation, execution, observation, governance, history, and audit — so people, applications, and AI systems can define operational work once and activate it through any supported mechanism.
 
-It is designed as a general-purpose task orchestration utility that can be used by individuals, teams, services, scripts, CI/CD systems, business applications, engineering workflows, and AI-enabled platforms. TaskControl does not depend on KAE or any specific application domain. KAE is one possible external consumer of TaskControl through the same public interfaces available to every other integration.
+**It automates the work of production engineers, not just the execution of scripts.**
 
-## Product purpose
+Activation comes in two kinds. **Recurring** activation belongs to cron, which says "it is now time to run this". **On-demand** activation arrives through the CLI, REST, or MCP, when somebody requests the work. Either way the capability, the execution, and the recorded outcome are the same.
 
-TaskControl turns task definitions into reliable, observable, and auditable operations. It brings scheduling, execution control, dependencies, retries, approvals, deployment, monitoring, history, and runtime policies into one extensible application.
+**Cron activates. TaskControl governs.** TaskControl does not replace cron and does not require an always-running scheduler of its own — your recurring jobs keep running even when the TaskControl API and web interface are down.
+
+It is a general-purpose utility for individuals, teams, services, scripts, CI/CD systems, business applications, and engineering workflows. TaskControl does not depend on KAE or any specific application domain; KAE is one possible external consumer through the same public interfaces available to every other integration.
+
+## The problem
+
+Cron does its job well. What gets lost is everything around it — why a task exists, who owns it, where its runnable lives, whether the installed schedule still matches what anyone intended, what was retried, and what needs a human. TaskControl supplies that missing layer without taking cron's job away.
 
 ## Core capabilities
 
-- Define reusable and versioned tasks.
-- Schedule recurring, delayed, and event-driven work.
-- Execute commands, scripts, services, and adapter-backed operations.
-- Model dependencies, eligibility, retries, timeouts, and approvals.
-- Track attempts, outcomes, logs, history, and audit evidence.
-- Operate through a web application, REST API, CLI, and future SDKs.
-- Extend the platform through plugins, adapters, workers, events, and webhooks.
+- Define reusable, versioned tasks with schedules expressed as "every weekday at 06:00" — no cron syntax required.
+- Generate, plan, apply, and verify **managed cron artefacts**, preserving unmanaged entries.
+- Import and adopt an existing cron estate without rewriting it.
+- Register drop-in runnable packages from approved directories.
+- Track ownership, purpose, runbooks, criticality, and review status.
+- Record attempts, outcomes, logs, history, and audit evidence — distinguishing success from a skip, a block, a timeout, and an unproven result.
+- Accept durable asynchronous work from remote systems, processed by cron-woken workers.
+- Operate through a CLI, REST API, and web application.
+- Extend through plugins, adapters, events, and webhooks.
 
 ## Example uses
 
@@ -26,6 +34,7 @@ TaskControl can support:
 - report generation and data-processing pipelines;
 - CI/CD and release operations;
 - engineering and semiconductor automation flows;
+- adopting and documenting an existing cron estate;
 - scheduled business processes;
 - application-to-application orchestration;
 - media, rendering, and batch-processing jobs;
@@ -34,22 +43,39 @@ TaskControl can support:
 ## Architectural boundary
 
 ```text
-External clients and applications
-        |
-REST API / CLI / Web UI / SDK / Webhooks
-        |
-TaskControl application services and domain core
-        |
-Scheduler / execution engine / persistence / audit / plugins
-        |
-Local runners and future remote workers
+        Users, administrators, and remote applications
+                            |
+              Web UI  /  CLI  /  REST API
+                            |
+                 TaskControl control plane
+                            |
+        +-------------------+--------------------+
+        |                                        |
+ Scheduled task management              Async work submission
+        |                                        |
+ Cron artefact plan/apply                 Durable work queue
+        |                                        |
+        v                                        v
+      cron  ------------ wakes ------->  short-lived worker
+        |                                        |
+        +-------------------+--------------------+
+                            v
+                  Durable claim / lease
+                            v
+                    Execution services
+                            v
+              Outcomes, attempts, logs, audit
 ```
+
+The control plane is optional at activation time. Cron wakes the work; TaskControl records and governs it.
 
 TaskControl Core must remain independent of any specific business domain, AI framework, or external product. Integrations such as KAE, GitHub, CI/CD platforms, notification services, and infrastructure tools connect through stable public contracts.
 
 ## Current project stage
 
-**Early implementation — Wave 0 complete.** The project installs, passes lint, strict type checking, and its test suite, and exposes version and health through both the CLI and the API. There is no task, scheduling, or execution behaviour yet; that begins with Wave 1.
+**Early implementation.** Waves 0–3 delivered the foundation, domain model, persistence, and execution services under a previous internal-scheduler direction. That direction has been superseded: cron now owns recurring activation ([ADR 0022](development/decisions/0022_CRON_BACKED_ACTIVATION.md)). The completed work is retained and repositioned as supporting execution services.
+
+Cron artefact management, durable claims, and remote submission are the next work.
 
 ```bash
 make install && make check
@@ -74,7 +100,7 @@ Start with [`development/00_CONTEXT_INDEX.md`](development/00_CONTEXT_INDEX.md).
 
 ## Product direction
 
-TaskControl will be developed first as a useful standalone application. Advanced distributed, enterprise, and ecosystem integrations will be added incrementally without weakening the usability of the base product.
+TaskControl is developed first as a useful standalone, cron-backed application. Distributed, enterprise, and ecosystem capability is added incrementally, and never at the cost of the guarantee that already-deployed recurring work keeps running without TaskControl.
 
 ## Licence
 

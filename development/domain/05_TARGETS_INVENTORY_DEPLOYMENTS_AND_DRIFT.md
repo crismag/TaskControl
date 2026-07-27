@@ -3,6 +3,12 @@
 - Document level: **1 — Architecture**
 - Lifecycle state: Canonical
 
+> **Cron-backed reading (ADR 0022).** Deployment of managed scheduler artefacts is
+> **Phase 1 scope**, not deferred. Plan, apply, verify-by-read-back, import, adoption, and
+> drift detection against a local crontab are the first delivery, and the deployment concepts
+> here apply immediately rather than after a later multi-host phase.
+
+
 ## Purpose
 
 The deployment domain transforms versioned operational intent into target-specific artefacts and applies those artefacts safely, visibly, and reversibly.

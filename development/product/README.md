@@ -15,14 +15,19 @@ TaskControl Core must never depend on KAE, an AI framework, or any domain-specif
 
 ## Documents
 
-1. `PRODUCT_VISION.md` — mission, value, principles, and success criteria.
-2. `PRODUCT_SCOPE.md` — owned capabilities, non-goals, and release boundaries.
-3. `PRODUCT_PHILOSOPHY.md` — design philosophy and the product test applied to every feature.
-4. `USERS_AND_USE_CASES.md` — target users and representative workloads.
-5. `USER_JOURNEYS.md` — concrete journeys, each marked with its phase.
-6. `ECOSYSTEM_BOUNDARIES.md` — relationship to KAE and other external systems.
-7. `INTEGRATION_STRATEGY.md` — public integration mechanisms and compatibility rules.
-8. `PRODUCT_ROADMAP.md` — implementation-first path to the first useful release.
+1. `OPERATIONAL_MODEL_AND_PRODUCT_INTENT.md` — the real operational model that inspired
+   TaskControl. Read this first: it explains what everything else is productising, and it is
+   binding on implementation even as the implementation evolves.
+2. `PRODUCT_DESIGN_VISION.md` — the conceptual design vision, written from an
+   operations-engineer perspective. Explains why the architecture is shaped as it is.
+3. `PRODUCT_VISION.md` — mission, value, principles, and success criteria.
+4. `PRODUCT_SCOPE.md` — owned capabilities, non-goals, and release boundaries.
+5. `PRODUCT_PHILOSOPHY.md` — design philosophy and the product test applied to every feature.
+6. `USERS_AND_USE_CASES.md` — target users and representative workloads.
+7. `USER_JOURNEYS.md` — concrete journeys, each marked with its phase.
+8. `ECOSYSTEM_BOUNDARIES.md` — relationship to KAE and other external systems.
+9. `INTEGRATION_STRATEGY.md` — public integration mechanisms and compatibility rules.
+10. `PRODUCT_ROADMAP.md` — implementation-first path to the first useful release.
 
 Capability deliberately outside the current phase is not here. It is registered in `../future/DEFERRED_CAPABILITIES.md`.
 

@@ -21,6 +21,24 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13"]
 
+    # PostgreSQL runs on every push. A behaviour that only holds on SQLite is not a
+    # behaviour TaskControl has, and portability defects are invisible until this runs —
+    # a boolean default of `0` passed SQLite and failed PostgreSQL outright.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: taskcontrol
+          POSTGRES_PASSWORD: taskcontrol
+          POSTGRES_DB: taskcontrol_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -44,7 +62,20 @@ jobs:
         run: mypy
 
       - name: Test
+        env:
+          # Deliberately not prefixed TASKCONTROL_ — that namespace belongs to application
+          # settings, which reject unknown variables carrying it.
+          TC_TEST_POSTGRES_URL: postgresql+psycopg://taskcontrol:taskcontrol@localhost:5432/taskcontrol_test
         run: pytest --cov --cov-report=term-missing
+
+      - name: Fail if PostgreSQL tests were skipped
+        env:
+          TC_TEST_POSTGRES_URL: postgresql+psycopg://taskcontrol:taskcontrol@localhost:5432/taskcontrol_test
+        run: |
+          # A silent skip would let a PostgreSQL regression reach a release unnoticed.
+          pytest -q -k postgresql --no-header -p no:randomly | tee /tmp/pg.txt
+          grep -qE "[0-9]+ passed" /tmp/pg.txt
+          ! grep -qE "[0-9]+ skipped" /tmp/pg.txt
 
   install-from-wheel:
     name: console script resolves from a built wheel

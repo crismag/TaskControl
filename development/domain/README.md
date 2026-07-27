@@ -13,6 +13,34 @@ The handbook is intentionally independent of FastAPI, SQLAlchemy, React, cron, s
 
 > Users define operational intent. TaskControl resolves that intent into safe, observable, deployable execution.
 
+## Terminology after the cron-backed realignment
+
+ADR 0022 changed what activates recurring work. Four terms in this handbook must be read
+with the corrected meanings below. The concepts survive; the assumptions attached to them do
+not.
+
+| Term | Corrected meaning |
+|---|---|
+| **Schedule** | Desired activation intent, rendered and deployed through a scheduler-**management** adapter. It is not evidence that TaskControl runs a scheduler. |
+| **Trigger** | An activation event arriving from cron, a queue worker, or an explicit run-now request. TaskControl does not generate recurring triggers itself. |
+| **Execution** | One managed attempt to perform work, in a short-lived process. It may be initiated by cron, a worker, or an administrator. |
+| **Runtime** | Bounded execution services — locking, timeout, capture, classification, recording. It does not mean an always-on daemon. |
+| **Dependency** | Operational eligibility and constrained next-step release. It is not a general DAG language, and must not grow into one without an explicit product decision. |
+| **Claim / lease** | Durable, time-bounded ownership of a subject. One capability serves both scheduled-overlap prevention and work-item claiming (ADR 0023). |
+| **Operational Capability** | The reusable, versioned, independently deployable definition of something the organisation can do. The primary domain concept (ADR 0025). Currently modelled in code as `Task` plus `TaskRevision`. |
+| **Execution Request** | One request that a capability be performed, carrying its provenance — which mechanism activated it, and who asked. Currently `RunRequest`. |
+| **Execution Instance** | One recorded attempt to perform a capability. Currently `Execution`. |
+| **Activation policy** | How a capability becomes active: recurring, immediate, or deferred. A domain concept, held in the definition. |
+| **Activation mechanism** | What caused this particular request: cron, CLI, REST, MCP, or a queue worker. An adapter concern, recorded as provenance and **never** branched on in the domain. |
+| **Queue** | Infrastructure persisting deferred on-demand requests until a worker claims them. Not an activation source. |
+
+Where a handbook file still reads as though TaskControl owns activation, this table governs
+and the file is scheduled for correction in blueprint wave R1.
+
+The capability vocabulary post-dates the implementation. R1 decides, on evidence, whether the
+code is renamed to match or whether the mapping above is sufficient. The concepts already
+exist either way.
+
 ## Order within this handbook
 
 1. `00_DOMAIN_LANGUAGE_AND_BOUNDARIES.md`

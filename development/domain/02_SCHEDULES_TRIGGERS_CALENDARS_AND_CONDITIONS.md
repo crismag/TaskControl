@@ -3,6 +3,13 @@
 - Document level: **1 — Architecture**
 - Lifecycle state: Canonical
 
+> **Cron-backed reading (ADR 0022).** A schedule here is *desired activation intent*. It is
+> rendered into a managed artefact and installed into an external scheduler — cron first —
+> which performs the activation. Nothing in this file implies TaskControl runs a scheduler
+> loop, and next-run preview is a projection of what the installed artefact will do, not a
+> queue TaskControl services.
+
+
 ## Purpose
 
 This domain determines when a task is nominally due and whether a particular trigger occurrence is permitted to become an execution.

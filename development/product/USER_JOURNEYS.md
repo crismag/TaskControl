@@ -2,7 +2,7 @@
 
 - Document level: **0 — Identity**
 - Governed by: `PRODUCT_SCOPE.md`, `PRODUCT_ROADMAP.md`
-- Related: `USERS_AND_USE_CASES.md` (who), this document (what they do), ADR 0018 (ordering)
+- Related: `USERS_AND_USE_CASES.md` (who), this document (what they do), ADR 0022 (cron owns activation)
 
 ## Purpose
 
@@ -12,7 +12,7 @@ This document grounds TaskControl in real operational journeys. Contributors and
 
 Each journey carries the phase in which it becomes deliverable. A journey marked Phase 2 or later is **not** Phase 1 scope; it constrains the design so that the capability remains reachable, and its supporting capability is registered in `DEFERRED_CAPABILITIES.md`.
 
-Phase 1 journeys: 1, 2, 3, 6, 7, 8, 9, 13, 14. Every feature proposal should be tested against at least one Phase 1 journey plus Journey 13.
+Phase 1 journeys: 1, 2, 3, 6, 7, 8, 9, 13, 14, 15 — note that **15 (crontab import and adoption) is now Phase 1**, because adopting an existing estate is core to a cron-backed product rather than a later convenience. Every feature proposal should be tested against at least one Phase 1 journey plus Journey 13.
 
 ## Journey 1: Personal scheduled task — **Phase 1**
 
@@ -24,15 +24,17 @@ Expected flow:
 2. Select the Python execution adapter.
 3. Select the script and arguments.
 4. Define a weekday schedule at 08:00 in the local time zone.
-5. Preview the next scheduled runs and the resolved runtime configuration.
-6. Run a validation and a manual test execution.
-7. Enable the schedule so TaskControl runs it.
-8. View execution history and logs.
-9. Disable, update, or archive the task.
+5. Preview the next scheduled runs, the resolved configuration, and the **managed cron
+   artefact TaskControl will install**.
+6. Run a validation and an administrative test execution.
+7. Apply the managed cron entry, which TaskControl verifies by reading it back.
+8. Cron activates the task; TaskControl records the outcome.
+9. View execution history and logs.
+10. Disable, update, or archive the task, and the managed entry follows.
 
-Minimum value: TaskControl must make this easier and safer than hand-editing crontab while retaining transparency.
-
-In Phase 2 this journey gains an alternative ending: generate a cron artefact, preview the deployment plan, and hand execution to the host scheduler.
+Minimum value: easier and safer than hand-editing a crontab, without hiding what was
+installed. The developer never types a cron expression, and the job keeps running whether or
+not TaskControl's web process is up.
 
 ## Journey 2: Existing shell script with profile guards — **Phase 1**
 
@@ -79,7 +81,7 @@ Expected capabilities:
 - detect drift after deployment;
 - roll back to a previous revision.
 
-## Journey 5: Mixed scheduler platforms — **Phase 2**
+## Journey 5: Mixed scheduler platforms — **Phase 3**
 
 An organisation needs comparable operations on Linux cron, Linux systemd, Kubernetes, and Windows.
 
@@ -197,11 +199,12 @@ The interface should answer, in order:
 
 Removing a task definition must not silently leave deployed artefacts behind. TaskControl should show active deployments and require an explicit decision to retire, uninstall, archive, or preserve them.
 
-## Journey 15: Import and adoption — **Phase 2**
+## Journey 15: Import and adoption — **Phase 1**
 
 A user has existing crontabs.
 
-A future import feature may:
+Import is Phase 1 scope: a cron-backed product that cannot adopt an existing estate offers
+little to the operators who need it most. Import will:
 
 - parse entries;
 - identify commands, schedules, users, and environment declarations;
@@ -214,3 +217,37 @@ A future import feature may:
 ## Acceptance questions for every feature
 
 A feature proposal should be tested against at least three journeys: personal/local use, multi-host use, and operational investigation. It should also explain how failures and unsupported platform capabilities are surfaced.
+
+## Journey 16: Remote asynchronous submission — **Phase 2**
+
+A remote application needs operational work performed on a managed host, and has no SSH
+access, no filesystem access, and no ability to edit a crontab.
+
+Expected flow:
+
+1. The application `POST`s a work item naming a **registered task type**, a payload, an
+   idempotency key, and optionally a not-before time.
+2. TaskControl persists the item and returns an identifier and accepted status immediately.
+   The caller does not wait.
+3. Cron later wakes a short-lived, bounded worker.
+4. The worker claims eligible items durably, processes them, records attempts and outcomes,
+   and moves each to a terminal or retry-wait state.
+5. The caller queries status without knowing anything about cron or the target host.
+
+The API never accepts an arbitrary shell command. A submission API that did would be a
+remote-execution service, which is not this product.
+
+## Journey 17: Control plane unavailable at activation — **Phase 1**
+
+Cron wakes a managed task. TaskControl's database is unreachable.
+
+What happens is decided per task, in its definition, never by accident (ADR 0024):
+
+- `require_control_state` — the runnable does not run; the activation is reconciled as an
+  infrastructure failure once persistence returns. For work where an unrecorded run is worse
+  than a missed one.
+- `continue_with_local_journal` — the runnable runs, a local journal entry is written, and
+  it is reconciled into central history later. For backups and cleanups, where missing the
+  work is worse than temporarily missing the record.
+
+The operator must be able to see which policy a task uses by reading its definition.

@@ -7,6 +7,10 @@ A change is done only when all applicable dimensions are complete or explicitly 
 
 ## Product and domain
 
+- **The recognition test.** For any change a user can see, ask: would a production engineer
+  who has never seen TaskControl recognise this as automating work they currently do by
+  hand? If the change is only meaningful to someone who already understands the
+  architecture, it is not done — see `product/PRODUCT_PHILOSOPHY.md`.
 - The intended user or operational outcome is clear.
 - Domain terminology matches the handbook.
 - Invariants and state transitions are implemented in the correct layer.

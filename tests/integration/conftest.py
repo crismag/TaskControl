@@ -19,7 +19,13 @@ from taskcontrol.adapters.persistence.unit_of_work import UnitOfWork
 from taskcontrol.infrastructure.database import create_database_engine, create_session_factory
 from taskcontrol.infrastructure.migrations import upgrade_to_head
 
-POSTGRES_URL_VARIABLE = "TASKCONTROL_TEST_POSTGRES_URL"
+POSTGRES_URL_VARIABLE = "TC_TEST_POSTGRES_URL"
+"""Deliberately **not** prefixed ``TASKCONTROL_``.
+
+That prefix belongs to application settings, and the application rejects unknown variables
+carrying it — correctly, since a mistyped setting must fail loudly. A harness variable using
+the same prefix is therefore either stripped by environment isolation or rejected as a typo.
+Test configuration gets its own namespace."""
 
 
 def postgres_url() -> str | None:
@@ -33,7 +39,8 @@ def backend(request: pytest.FixtureRequest) -> str:
     if request.param == "postgresql" and not postgres_url():
         pytest.skip(
             f"PostgreSQL tests need {POSTGRES_URL_VARIABLE}, for example "
-            f"{POSTGRES_URL_VARIABLE}=postgresql+psycopg://taskcontrol@localhost/taskcontrol_test"
+            f"{POSTGRES_URL_VARIABLE}="
+            "postgresql+psycopg://taskcontrol@localhost/taskcontrol_test"
         )
     return str(request.param)
 
@@ -65,12 +72,19 @@ def engine(backend: str, tmp_path: Path) -> Iterator[Engine]:
 
 
 def _drop_everything(engine: Engine) -> None:
-    """Reset a PostgreSQL database between tests."""
+    """Reset a PostgreSQL database between tests.
+
+    The table list is derived from the model metadata rather than hard-coded, so a table
+    added in a later wave cannot be forgotten here. An earlier hard-coded version missed
+    the Wave 3 execution tables, which left stale rows between PostgreSQL runs — a failure
+    that never appears on SQLite, because each SQLite test gets a fresh file.
+
+    Dropped in reverse dependency order, with CASCADE, so foreign keys do not block it.
+    """
     with engine.begin() as connection:
-        connection.execute(text("DROP TABLE IF EXISTS task_revisions CASCADE"))
-        connection.execute(text("DROP TABLE IF EXISTS tasks CASCADE"))
+        for table in reversed(Base.metadata.sorted_tables):
+            connection.execute(text(f'DROP TABLE IF EXISTS "{table.name}" CASCADE'))
         connection.execute(text("DROP TABLE IF EXISTS alembic_version CASCADE"))
-    Base.metadata.clear()
 
 
 @pytest.fixture

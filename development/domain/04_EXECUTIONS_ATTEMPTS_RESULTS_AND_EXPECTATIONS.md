@@ -3,6 +3,13 @@
 - Document level: **1 — Architecture**
 - Lifecycle state: Canonical
 
+> **Cron-backed reading (ADR 0022).** An execution is one managed attempt performed in a
+> **short-lived process** started by cron, a queue worker, or an administrator. There is no
+> supervising daemon watching it. Recovery of an interrupted execution therefore depends on
+> durable claim lease expiry (ADR 0023) and on reconciliation, not on a live process
+> noticing — which makes the honest `UNKNOWN` classification more important, not less.
+
+
 ## Purpose
 
 The execution domain records what TaskControl tried to run, where it ran, how it behaved, and whether the intended operational outcome occurred.
