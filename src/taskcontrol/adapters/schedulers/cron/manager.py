@@ -18,10 +18,14 @@ from dataclasses import dataclass
 
 from taskcontrol.adapters.schedulers.cron.rendering import (
     AmbiguousManagedContentError,
+    ManagedEntry,
+    find_block_members,
     find_managed_regions,
+    remove_block_member,
     remove_region,
     render_artefact,
     replace_region,
+    upsert_block_member,
 )
 from taskcontrol.adapters.schedulers.cron.stores import CrontabText, ManagedDirectory
 from taskcontrol.common.errors import ConfigurationError
@@ -198,15 +202,20 @@ class CronSchedulerManagement:
         entries: list[PlanEntry] = []
 
         for crontab in self._configured_crontabs():
-            for region in find_managed_regions(crontab.read()):
-                if region.slug not in desired_slugs:
+            content = crontab.read()
+            managed: list[ManagedEntry] = [
+                *find_managed_regions(content),
+                *find_block_members(content),
+            ]
+            for held in managed:
+                if held.slug not in desired_slugs:
                     entries.append(
                         PlanEntry(
-                            task_id=TaskId.from_primitive(region.task_id),
-                            slug=region.slug,
+                            task_id=TaskId.from_primitive(held.task_id),
+                            slug=held.slug,
                             change=DeploymentChange.REMOVE,
                             target_description=crontab.description,
-                            before=region.text,
+                            before=held.text,
                             detail="Managed here, but no longer part of the deployed estate.",
                         )
                     )
@@ -286,7 +295,10 @@ class CronSchedulerManagement:
             crontab = self._crontab_for(artefact)
             original = crontab.read()
             snapshot.capture_crontab(crontab, original)
-            crontab.write(replace_region(original, artefact.slug, entry.after))
+            if _is_single_block(artefact):
+                crontab.write(upsert_block_member(original, artefact.slug, entry.after))
+            else:
+                crontab.write(replace_region(original, artefact.slug, entry.after))
             written = self._current_content(artefact)
 
         if written.strip() != entry.after.strip():
@@ -308,11 +320,23 @@ class CronSchedulerManagement:
         """
         for crontab in self._configured_crontabs():
             original = crontab.read()
-            if not any(region.slug == entry.slug for region in find_managed_regions(original)):
+            # Both shapes are checked. A capability can only be in one of them at a time,
+            # but which one is a property of its current deployment rather than of what the
+            # caller believes, and removal must act on what is actually there.
+            in_region = any(r.slug == entry.slug for r in find_managed_regions(original))
+            in_block = any(m.slug == entry.slug for m in find_block_members(original))
+            if not in_region and not in_block:
                 continue
+
             snapshot.capture_crontab(crontab, original)
-            crontab.write(remove_region(original, entry.slug))
-            if any(r.slug == entry.slug for r in find_managed_regions(crontab.read())):
+            updated = remove_region(original, entry.slug) if in_region else original
+            crontab.write(remove_block_member(updated, entry.slug) if in_block else updated)
+
+            after = crontab.read()
+            still_there = any(r.slug == entry.slug for r in find_managed_regions(after)) or any(
+                m.slug == entry.slug for m in find_block_members(after)
+            )
+            if still_there:
                 raise _VerificationFailedError(
                     f"'{entry.slug}' is still present in {crontab.description} after removing it."
                 )
@@ -405,14 +429,19 @@ class CronSchedulerManagement:
         findings: list[VerificationFinding] = []
 
         for crontab in self._configured_crontabs():
-            for region in find_managed_regions(crontab.read()):
-                if region.slug not in desired_slugs:
+            content = crontab.read()
+            held_here: list[ManagedEntry] = [
+                *find_managed_regions(content),
+                *find_block_members(content),
+            ]
+            for held in held_here:
+                if held.slug not in desired_slugs:
                     findings.append(
                         VerificationFinding(
                             kind=DriftKind.UNEXPECTED,
                             target_description=crontab.description,
-                            detail=f"A managed region for '{region.slug}' is deployed here.",
-                            task_id=TaskId.from_primitive(region.task_id),
+                            detail=f"A managed entry for '{held.slug}' is deployed here.",
+                            task_id=TaskId.from_primitive(held.task_id),
                         )
                     )
 
@@ -481,6 +510,16 @@ class CronSchedulerManagement:
             return content
 
         crontab = self._crontab_for(artefact)
+
+        if _is_single_block(artefact):
+            member = next(
+                (m for m in find_block_members(crontab.read()) if m.slug == artefact.slug), None
+            )
+            if member is None:
+                return ""
+            self._assert_same_capability(artefact, member.task_id, crontab.description)
+            return member.text
+
         region = next(
             (r for r in find_managed_regions(crontab.read()) if r.slug == artefact.slug), None
         )
@@ -636,6 +675,11 @@ def _looks_executable(content: str) -> bool:
     itself relies on.
     """
     return content.startswith("#!")
+
+
+def _is_single_block(artefact: DesiredArtefact) -> bool:
+    """Whether this artefact lives inside the one shared managed block."""
+    return artefact.deployment.strategy is DeploymentStrategy.CRONTAB_SINGLE_BLOCK
 
 
 def is_run_parts(strategy: DeploymentStrategy) -> bool:

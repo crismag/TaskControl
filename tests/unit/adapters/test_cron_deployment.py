@@ -23,6 +23,13 @@ from taskcontrol.adapters.schedulers.cron import (
     FilesystemDirectory,
     render_artefact,
 )
+from taskcontrol.adapters.schedulers.cron.rendering import (
+    BLOCK_BEGIN_MARKER,
+    BLOCK_END_MARKER,
+    find_block_members,
+    find_managed_regions,
+    render_block_member,
+)
 from taskcontrol.common.errors import ValidationError
 from taskcontrol.domain.common.identifiers import TaskId
 from taskcontrol.domain.deployment.strategies import (
@@ -471,3 +478,163 @@ def test_two_capabilities_cannot_share_a_slug(
     impostor = artefact_for(DeploymentStrategy.CRONTAB_BLOCK_PER_TASK, command="/bin/false")
     with pytest.raises(AmbiguousManagedContentError, match="different capability"):
         manager.plan([impostor])
+
+
+# -- plurality: the dimension the original contract tests were missing -------------------
+#
+# Every test above deploys one capability at a time, and with one capability a per-task
+# block and a single shared block are genuinely indistinguishable. That is how
+# `crontab_single_block` shipped as a synonym for `crontab_block_per_task` with a full
+# green suite behind it. The missing dimension was never a strategy — it was plurality.
+
+
+@pytest.mark.parametrize("strategy", ALL_STRATEGIES)
+def test_three_capabilities_deploy_independently(
+    strategy: DeploymentStrategy, host: tuple[CronSchedulerManagement, Path, Path, Path]
+) -> None:
+    """All three land, and each is separately identifiable afterwards."""
+    manager, _, _, _ = host
+    estate = [artefact_for(strategy, slug=slug) for slug in ("alpha", "beta", "gamma")]
+
+    plan = manager.plan(estate)
+    assert plan.count_of(DeploymentChange.CREATE) == 3
+
+    assert manager.apply(plan).succeeded
+    assert manager.verify(estate).matches
+
+
+@pytest.mark.parametrize("strategy", ALL_STRATEGIES)
+def test_updating_one_capability_leaves_its_neighbours_untouched(
+    strategy: DeploymentStrategy, host: tuple[CronSchedulerManagement, Path, Path, Path]
+) -> None:
+    """The test that would have caught the single-block defect.
+
+    Rewriting a shared block must preserve every entry that is not being changed. Getting
+    this wrong silently unschedules other people's jobs — the worst available failure,
+    because the artefact still looks correct for the capability you were working on.
+    """
+    manager, _, _, _ = host
+    estate = [artefact_for(strategy, slug=slug) for slug in ("alpha", "beta", "gamma")]
+    manager.apply(manager.plan(estate))
+
+    changed = [
+        artefact_for(strategy, slug="beta", command="/bin/true", task_id=estate[1].task_id)
+        if artefact.slug == "beta"
+        else artefact
+        for artefact in estate
+    ]
+
+    plan = manager.plan(changed)
+    assert plan.count_of(DeploymentChange.UPDATE) == 1
+    assert plan.count_of(DeploymentChange.UNCHANGED) == 2
+
+    assert manager.apply(plan).succeeded
+    assert manager.verify(changed).matches
+
+
+@pytest.mark.parametrize("strategy", ALL_STRATEGIES)
+def test_removing_one_capability_leaves_its_neighbours_deployed(
+    strategy: DeploymentStrategy, host: tuple[CronSchedulerManagement, Path, Path, Path]
+) -> None:
+    """Undeploying one job must not undeploy the others sharing its artefact."""
+    manager, _, _, _ = host
+    estate = [artefact_for(strategy, slug=slug) for slug in ("alpha", "beta", "gamma")]
+    manager.apply(manager.plan(estate))
+
+    assert manager.remove([estate[1].task_id]).succeeded
+
+    survivors = [estate[0], estate[2]]
+    assert manager.verify(survivors).matches
+    assert [f.kind for f in manager.verify(estate).findings] == [DriftKind.MISSING]
+
+
+@pytest.mark.parametrize("strategy", ALL_STRATEGIES)
+def test_unmanaged_content_survives_a_whole_estate_lifecycle(
+    strategy: DeploymentStrategy, host: tuple[CronSchedulerManagement, Path, Path, Path]
+) -> None:
+    """Deploy three, change one, remove all — somebody's crontab comes back byte-identical."""
+    manager, crontab_path, _, _ = host
+    estate = [artefact_for(strategy, slug=slug) for slug in ("alpha", "beta", "gamma")]
+
+    manager.apply(manager.plan(estate))
+    manager.apply(
+        manager.plan(
+            [
+                artefact_for(strategy, slug="beta", command="/bin/true", task_id=estate[1].task_id)
+                if artefact.slug == "beta"
+                else artefact
+                for artefact in estate
+            ]
+        )
+    )
+    manager.remove([artefact.task_id for artefact in estate])
+
+    assert crontab_path.read_text(encoding="utf-8") == UNMANAGED
+
+
+def test_the_single_block_holds_every_entry_in_one_region(
+    host: tuple[CronSchedulerManagement, Path, Path, Path],
+) -> None:
+    """What distinguishes this strategy, asserted rather than assumed.
+
+    One region, three entries. Previously this rendered as three separate regions, which
+    is what `crontab_block_per_task` is for.
+    """
+    manager, crontab_path, _, _ = host
+    estate = [
+        artefact_for(DeploymentStrategy.CRONTAB_SINGLE_BLOCK, slug=slug)
+        for slug in ("alpha", "beta", "gamma")
+    ]
+    manager.apply(manager.plan(estate))
+
+    content = crontab_path.read_text(encoding="utf-8")
+
+    assert content.count(BLOCK_BEGIN_MARKER) == 1
+    assert content.count(BLOCK_END_MARKER) == 1
+    assert [member.slug for member in find_block_members(content)] == ["alpha", "beta", "gamma"]
+
+
+def test_per_task_blocks_are_separate_regions(
+    host: tuple[CronSchedulerManagement, Path, Path, Path],
+) -> None:
+    """The other half of the distinction, so neither strategy can drift into the other."""
+    manager, crontab_path, _, _ = host
+    estate = [
+        artefact_for(DeploymentStrategy.CRONTAB_BLOCK_PER_TASK, slug=slug)
+        for slug in ("alpha", "beta", "gamma")
+    ]
+    manager.apply(manager.plan(estate))
+
+    content = crontab_path.read_text(encoding="utf-8")
+
+    assert len(find_managed_regions(content)) == 3
+    assert BLOCK_BEGIN_MARKER not in content
+
+
+def test_the_block_disappears_when_it_holds_nothing(
+    host: tuple[CronSchedulerManagement, Path, Path, Path],
+) -> None:
+    """An empty pair of markers is litter in somebody's working crontab."""
+    manager, crontab_path, _, _ = host
+    artefact = artefact_for(DeploymentStrategy.CRONTAB_SINGLE_BLOCK, slug="alpha")
+    manager.apply(manager.plan([artefact]))
+
+    manager.remove([artefact.task_id])
+
+    assert BLOCK_BEGIN_MARKER not in crontab_path.read_text(encoding="utf-8")
+
+
+def test_two_entries_in_the_block_claiming_one_task_are_refused(
+    host: tuple[CronSchedulerManagement, Path, Path, Path],
+) -> None:
+    """Rule 5 inside the block, not only around it."""
+    manager, crontab_path, _, _ = host
+    artefact = artefact_for(DeploymentStrategy.CRONTAB_SINGLE_BLOCK, slug="alpha")
+    manager.apply(manager.plan([artefact]))
+
+    content = crontab_path.read_text(encoding="utf-8")
+    duplicated = content.replace(BLOCK_END_MARKER, render_block_member(artefact) + BLOCK_END_MARKER)
+    crontab_path.write_text(duplicated, encoding="utf-8")
+
+    with pytest.raises(AmbiguousManagedContentError, match="two entries"):
+        manager.plan([artefact])

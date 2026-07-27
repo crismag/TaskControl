@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
 from taskcontrol.common.errors import ValidationError
 from taskcontrol.domain.deployment.strategies import DeploymentStrategy
@@ -43,6 +44,31 @@ _END = re.compile(r"^#\s*<<<\s*taskcontrol\s+task=(?P<slug>\S+)\s*<<<\s*$")
 _GENERATED_NOTICE = (
     "# Managed by TaskControl. Edits between the markers are overwritten on the next apply."
 )
+
+
+@runtime_checkable
+class ManagedEntry(Protocol):
+    """Something TaskControl wrote into a crontab and can identify as its own.
+
+    A marked region and an entry inside the single managed block are different shapes on
+    disk, but they answer the same three questions — whose is this, which capability, and
+    what does it say — so the code that plans removals and reports drift treats them alike.
+    """
+
+    @property
+    def slug(self) -> str:
+        """The capability's stable name."""
+        ...
+
+    @property
+    def task_id(self) -> str:
+        """The capability's identifier."""
+        ...
+
+    @property
+    def text(self) -> str:
+        """The entry as text, newline-terminated."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +124,8 @@ def render_artefact(artefact: DesiredArtefact) -> str:
             return _render_run_parts_script(artefact)
         case DeploymentStrategy.CRON_D_FILE:
             return _render_cron_d_file(artefact)
+        case DeploymentStrategy.CRONTAB_SINGLE_BLOCK:
+            return render_block_member(artefact)
         case _:
             return _render_crontab_region(artefact)
 
@@ -353,3 +381,265 @@ def remove_region(content: str, slug: str) -> str:
 
     lines = content.splitlines(keepends=True)
     return "".join(lines[: existing.start] + lines[existing.end + 1 :])
+
+
+# -- the single managed block ----------------------------------------------------------
+#
+# One region holds every managed line, which is what an operator asks for when they want
+# TaskControl's entries in one place they can read at a glance. The region markers name the
+# block rather than a task; each entry inside carries its own identity comment.
+#
+#     # >>> taskcontrol block >>>
+#     # Managed by TaskControl. ...
+#     # taskcontrol task=nightly-backup id=task_0193... digest=sha256:ab...
+#     0 2 * * *  /usr/bin/taskctl activate nightly-backup
+#     # <<< taskcontrol block <<<
+#
+# Per-entry identity inside the block is not decoration. Without it, updating one
+# capability would mean rewriting entries belonging to others from whatever the caller
+# happened to know about, and removing one would mean guessing which line was whose.
+
+_BLOCK_BEGIN = re.compile(r"^#\s*>>>\s*taskcontrol\s+block\s*>>>\s*$")
+_BLOCK_END = re.compile(r"^#\s*<<<\s*taskcontrol\s+block\s*<<<\s*$")
+_MEMBER = re.compile(
+    r"^#\s*taskcontrol\s+task=(?P<slug>\S+)\s+id=(?P<task_id>\S+)\s+digest=(?P<digest>\S+)\s*$"
+)
+
+BLOCK_BEGIN_MARKER = "# >>> taskcontrol block >>>"
+BLOCK_END_MARKER = "# <<< taskcontrol block <<<"
+
+
+@dataclass(frozen=True, slots=True)
+class BlockMember:
+    """One capability's entry inside the single managed block.
+
+    Attributes:
+        slug: The task's slug, from its identity comment.
+        task_id: The task identifier.
+        digest: The revision digest the entry was rendered from.
+        lines: The entry's lines, identity comment included.
+    """
+
+    slug: str
+    task_id: str
+    digest: str
+    lines: tuple[str, ...]
+
+    @property
+    def text(self) -> str:
+        """The entry as text, newline-terminated."""
+        return "\n".join(self.lines) + "\n"
+
+
+def render_block_member(artefact: DesiredArtefact) -> str:
+    """Render one capability's entry for the single managed block.
+
+    Args:
+        artefact: What to deploy.
+
+    Returns:
+        The entry text, newline-terminated.
+
+    Raises:
+        ValidationError: If the artefact has no schedule.
+    """
+    schedule = _require_schedule(artefact)
+    user = artefact.deployment.execution_user
+    entry = f"{schedule} {user} {artefact.command}" if user else f"{schedule} {artefact.command}"
+
+    lines = [
+        f"# {MARKER_PREFIX} task={artefact.slug} id={artefact.task_id} "
+        f"digest={artefact.content_digest}",
+        *_description_comment(artefact),
+        entry,
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def find_block_members(content: str) -> tuple[BlockMember, ...]:
+    """Return every capability entry inside the single managed block.
+
+    Args:
+        content: The full crontab text.
+
+    Returns:
+        The entries, in the order they appear. Empty when there is no block.
+
+    Raises:
+        AmbiguousManagedContentError: If the block is unterminated, appears twice, or two
+            entries claim the same capability.
+    """
+    bounds = _block_bounds(content)
+    if bounds is None:
+        return ()
+
+    lines = content.splitlines()
+    start, end = bounds
+    members: list[BlockMember] = []
+    current: re.Match[str] | None = None
+    body: list[str] = []
+
+    for line in lines[start + 1 : end]:
+        identity = _MEMBER.match(line)
+        if identity:
+            if current is not None:
+                members.append(_member(current, body))
+            current, body = identity, [line]
+            continue
+        if current is not None:
+            body.append(line)
+
+    if current is not None:
+        members.append(_member(current, body))
+
+    _assert_members_unique(members)
+    return tuple(members)
+
+
+def _member(identity: re.Match[str], lines: list[str]) -> BlockMember:
+    """Build a member from its identity comment and following lines."""
+    return BlockMember(
+        slug=identity.group("slug"),
+        task_id=identity.group("task_id"),
+        digest=identity.group("digest"),
+        lines=tuple(lines),
+    )
+
+
+def _assert_members_unique(members: list[BlockMember]) -> None:
+    """Raise if two entries in the block claim the same capability.
+
+    Raises:
+        AmbiguousManagedContentError: If a capability appears twice.
+    """
+    seen: set[str] = set()
+    for member in members:
+        if member.task_id in seen:
+            raise AmbiguousManagedContentError(
+                f"The managed block contains two entries for '{member.slug}'. Rewriting "
+                "either could leave the other running stale work, so TaskControl will not "
+                "choose between them. Remove the wrong entry by hand.",
+                details={"slug": member.slug, "task_id": member.task_id},
+            )
+        seen.add(member.task_id)
+
+
+def _block_bounds(content: str) -> tuple[int, int] | None:
+    """Return the block's begin and end line indices, or ``None`` when there is no block.
+
+    Raises:
+        AmbiguousManagedContentError: If the block is unterminated or appears twice.
+    """
+    lines = content.splitlines()
+    start: int | None = None
+    end: int | None = None
+
+    for index, line in enumerate(lines):
+        if _BLOCK_BEGIN.match(line):
+            if start is not None:
+                raise AmbiguousManagedContentError(
+                    "The crontab contains two managed blocks. TaskControl will not choose "
+                    "between them.",
+                    details={"first_line": start + 1, "second_line": index + 1},
+                )
+            start = index
+        elif _BLOCK_END.match(line):
+            if start is None:
+                raise AmbiguousManagedContentError(
+                    "A managed block ends without having begun.", details={"line": index + 1}
+                )
+            end = index
+
+    if start is None:
+        return None
+    if end is None:
+        raise AmbiguousManagedContentError(
+            "The managed block begins and never ends. Something truncated the file, or an "
+            "end marker was deleted by hand.",
+            details={"line": start + 1},
+        )
+    return start, end
+
+
+def upsert_block_member(content: str, slug: str, member: str) -> str:
+    """Insert or replace one capability's entry in the single managed block.
+
+    Creates the block when there is none. Every other entry, and every line outside the
+    block, is preserved exactly — which is the whole reason entries carry their own
+    identity rather than being addressed by position.
+
+    Args:
+        content: The current crontab text.
+        slug: The capability whose entry is being written.
+        member: The rendered entry.
+
+    Returns:
+        The updated text.
+
+    Raises:
+        AmbiguousManagedContentError: If the existing block is ambiguous.
+    """
+    bounds = _block_bounds(content)
+
+    if bounds is None:
+        block = f"{BLOCK_BEGIN_MARKER}\n{_GENERATED_NOTICE}\n{member}{BLOCK_END_MARKER}\n"
+        if not content:
+            return block
+        separator = "" if content.endswith("\n") else "\n"
+        return f"{content}{separator}{block}"
+
+    members = find_block_members(content)
+    rebuilt: list[str] = []
+    replaced = False
+
+    # Existing entries keep their positions. Rewriting the block in a different order every
+    # apply would make a crontab diff unreadable, and an unreadable diff is how a review
+    # stops catching anything.
+    for existing in members:
+        if existing.slug == slug:
+            rebuilt.append(member)
+            replaced = True
+        else:
+            rebuilt.append(existing.text)
+    if not replaced:
+        rebuilt.append(member)
+
+    return _rewrite_block(content, bounds, rebuilt)
+
+
+def remove_block_member(content: str, slug: str) -> str:
+    """Remove one capability's entry from the single managed block.
+
+    Removing the last entry removes the block itself: an empty pair of markers is litter in
+    somebody's crontab, and TaskControl should not leave any behind once it manages nothing.
+
+    Args:
+        content: The current crontab text.
+        slug: The capability to remove.
+
+    Returns:
+        The updated text.
+
+    Raises:
+        AmbiguousManagedContentError: If the existing block is ambiguous.
+    """
+    bounds = _block_bounds(content)
+    if bounds is None:
+        return content
+
+    remaining = [member.text for member in find_block_members(content) if member.slug != slug]
+
+    if not remaining:
+        lines = content.splitlines(keepends=True)
+        start, end = bounds
+        return "".join(lines[:start] + lines[end + 1 :])
+
+    return _rewrite_block(content, bounds, remaining)
+
+
+def _rewrite_block(content: str, bounds: tuple[int, int], members: list[str]) -> str:
+    """Rewrite the managed block's contents, leaving everything outside it untouched."""
+    start, end = bounds
+    lines = content.splitlines(keepends=True)
+    block = f"{BLOCK_BEGIN_MARKER}\n{_GENERATED_NOTICE}\n{''.join(members)}{BLOCK_END_MARKER}\n"
+    return "".join(lines[:start] + [block] + lines[end + 1 :])
