@@ -6,7 +6,7 @@
 - Date: 2026-07-26
 - Owners: TaskControl maintainers
 - Supersedes: Layout sections of `development/archive/04_TECHNOLOGY_AND_REPOSITORY_STRUCTURE.md` and `development/archive/06_FULL_APPLICATION_BLUEPRINT.md`
-- Superseded by: None
+- Superseded by: ADR 0019, for the `apps/` placement only; the rest stands
 - Related documents: `development/00_CONTEXT_INDEX.md`, `development/engineering/repository/10_REPOSITORY_STRUCTURE.md`, `development/engineering/repository/11_DEPENDENCY_RULES.md`, ADR 0003, ADR 0011
 
 ## Context
@@ -54,17 +54,19 @@ Strengths: fewer concepts. Weaknesses: conflates process bootstrapping with exte
 
 Adopt **Option A**. The canonical layout is:
 
+> **Corrected by ADR 0019.** The tree below shows `apps/` at top level. That placement is wrong:
+> a top-level `apps/` is not present in an installed wheel, so console scripts and ASGI factories
+> cannot resolve from it. Composition roots live at `src/taskcontrol/apps/`. Everything else in this
+> ADR stands. `engineering/repository/10_REPOSITORY_STRUCTURE.md` carries the corrected tree.
+
 ```text
 TaskControl/
 ├── pyproject.toml
 ├── README.md
 ├── Makefile
 ├── .env.example
-├── apps/                      # composition roots only: wiring, settings, process startup
-│   ├── api/
-│   ├── cli/
-│   └── worker/
 ├── src/taskcontrol/
+│   ├── apps/                  # composition roots only: wiring, settings, process startup
 │   ├── domain/                # entities, value objects, policies, pure decisions
 │   ├── application/           # use cases, commands, queries, orchestration
 │   ├── ports/                 # interfaces required by domain and application

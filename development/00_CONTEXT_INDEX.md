@@ -14,9 +14,10 @@ TaskControl is a standalone, general-purpose application for defining, schedulin
 
 ## Current state of the repository
 
-**Documentation only. No source code exists yet.**
+**Wave 0 complete.** The project installs, lints, type-checks, and tests green, and exposes
+version and health through the CLI and the API. No product behaviour beyond that yet.
 
-The next action is Wave 0 of `10_IMPLEMENTATION_BLUEPRINT.md`. High-level product and architecture documentation is frozen: changes at Level 0 or Level 1 now require an ADR and an explicit supersession analysis (ADR 0017).
+The next action is Wave 1 (Domain core) of `10_IMPLEMENTATION_BLUEPRINT.md`. High-level product and architecture documentation is frozen: changes at Level 0 or Level 1 now require an ADR and an explicit supersession analysis (ADR 0017).
 
 ## Documentation levels
 
@@ -113,7 +114,7 @@ Exactly one document answers each of these. No other document may restate the an
 | --- | --- |
 | `architecture/ARCHITECTURE_OVERVIEW.md` | Style, layers, runtime flow, topology, boundaries |
 | `domain/README.md` … `domain/09_*.md` | The domain handbook (11 files) |
-| `decisions/README.md`, `decisions/00NN_*.md` | ADRs 0001–0018 |
+| `decisions/README.md`, `decisions/00NN_*.md` | ADRs 0001–0019 |
 | `engineering/README.md` and subdirectories | Charter, laws, structure, dependency rules, standards, quality, governance, AI policy |
 
 ### Level 2 — Blueprint

@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          ruff format --check src tests
+          ruff check src tests
+
+      - name: Type check
+        run: mypy
+
+      - name: Test
+        run: pytest --cov --cov-report=term-missing
+
+  install-from-wheel:
+    name: console script resolves from a built wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Validates ADR 0019: composition roots must be importable from an installed
+      # distribution, not only from a source checkout.
+      - name: Build and install the wheel outside the source tree
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+          mkdir -p /tmp/isolated && cd /tmp/isolated
+          python -m venv .venv
+          .venv/bin/pip install "$(echo "$GITHUB_WORKSPACE"/dist/*.whl)[api]"
+          .venv/bin/taskctl version
+          .venv/bin/python -c "from taskcontrol.apps.api.main import create_app; print('factory ok')"

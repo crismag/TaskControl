@@ -1,0 +1,141 @@
+# Developer Guide
+
+How to set up, run, and verify TaskControl locally.
+
+For *what to build next*, see [`development/10_IMPLEMENTATION_BLUEPRINT.md`](../development/10_IMPLEMENTATION_BLUEPRINT.md). For everything else, start at [`development/00_CONTEXT_INDEX.md`](../development/00_CONTEXT_INDEX.md).
+
+## Requirements
+
+- Python 3.12 or newer
+- `make`
+
+## Setup
+
+```bash
+git clone <repository-url>
+cd TaskControl
+make install
+```
+
+This creates `.venv/` and installs TaskControl in editable mode with the development extras. If your default `python3` is older than 3.12, point the Makefile at a newer one:
+
+```bash
+make install PYTHON=python3.12
+```
+
+Copy the sample configuration if you want to change any default:
+
+```bash
+cp .env.example .env
+```
+
+Every setting has a working default, so `.env` is optional. Never put a secret in it — `.env` is gitignored, but secrets belong behind a reference, not in a file.
+
+## Verify the installation
+
+```bash
+make check
+```
+
+`check` runs lint, strict type checking, and the full test suite. It is the gate: it must pass before any change is proposed, and CI runs exactly the same commands.
+
+## Running
+
+```bash
+.venv/bin/taskctl --help          # CLI
+.venv/bin/taskctl version         # installed version
+.venv/bin/taskctl health          # this process's health and effective configuration
+.venv/bin/taskctl health --json   # machine-readable
+
+make run-api                      # API with autoreload on http://127.0.0.1:8000
+```
+
+With the API running:
+
+| URL | Purpose |
+|---|---|
+| `http://127.0.0.1:8000/api/v1/health` | Liveness — is the process alive |
+| `http://127.0.0.1:8000/api/v1/ready` | Readiness — can it serve its advertised capability |
+| `http://127.0.0.1:8000/api/docs` | Interactive API documentation |
+
+`taskctl health` reports on the CLI process itself and makes no network call, so it works whether or not a server is running.
+
+## Everyday commands
+
+| Command | Does |
+|---|---|
+| `make format` | Apply formatting and fix import order |
+| `make lint` | Check formatting and lint rules without modifying files |
+| `make typecheck` | Strict mypy |
+| `make test` | Full suite with coverage |
+| `make test-unit` | Unit tests only — fast |
+| `make test-integration` | Integration tests only |
+| `make check` | Everything CI runs |
+| `make clean` | Remove caches, build output, and the virtualenv |
+
+## Configuration
+
+Settings are read from the environment (prefix `TASKCONTROL_`) and an optional `.env`, then validated once at startup. An invalid value stops the process rather than falling back to a default:
+
+```console
+$ TASKCONTROL_LOG_LEVEL=chatty taskctl version
+Configuration error: Invalid TaskControl configuration.
+  {'invalid_fields': ['log_level'], 'env_prefix': 'TASKCONTROL_'}
+$ echo $?
+78
+```
+
+Exit code 78 is `EX_CONFIG`, so a script can distinguish misconfiguration from a genuine failure. See [`.env.example`](../.env.example) for every variable.
+
+A rejected value is never echoed back — it might be a secret. The error names the field only.
+
+## Project layout
+
+The normative statement is [`development/engineering/repository/10_REPOSITORY_STRUCTURE.md`](../development/engineering/repository/10_REPOSITORY_STRUCTURE.md). In brief:
+
+| Path | Owns |
+|---|---|
+| `src/taskcontrol/apps/` | Composition roots — wiring and process startup only |
+| `src/taskcontrol/domain/` | Entities, invariants, pure decisions. Standard library only |
+| `src/taskcontrol/application/` | Use-case orchestration |
+| `src/taskcontrol/ports/` | Interfaces the inner layers require |
+| `src/taskcontrol/adapters/` | Implementations of ports against external technology |
+| `src/taskcontrol/api/`, `cli/` | Transport |
+| `src/taskcontrol/infrastructure/` | Settings, logging, runtime wiring |
+| `src/taskcontrol/common/` | The error taxonomy and cross-cutting utilities |
+
+`apps/api` **wires**; `api/` **transports**. A router in `apps/` is misplaced, and the architecture test will say so.
+
+Several of these packages are documented but empty — they are populated by the waves that need them, and the blueprint says which.
+
+## Architecture rules are tested, not just written
+
+`tests/unit/test_architecture.py` parses the source and fails the build on a forbidden import. Adding `import sqlalchemy` to a domain module fails immediately with the file and line.
+
+The test also checks itself: it runs a deliberately non-compliant sample through the same checker and asserts a violation is reported, so the rules cannot silently stop being enforced.
+
+To confirm it works, add `import fastapi` to any file under `src/taskcontrol/domain/` and run `make test-unit`.
+
+## Writing code here
+
+Read [`development/engineering/`](../development/engineering/) before your first change. The rules that catch people out most often:
+
+1. Business rules live in `domain/` or `application/`. Never in a route, a command, an ORM model, or an adapter.
+2. `domain/` imports only the standard library — not even Pydantic. Pydantic is a boundary technology.
+3. Timezone-aware datetimes everywhere; persist UTC. The linter enforces this (`DTZ`).
+4. Argument arrays for subprocesses, never string interpolation into a shell.
+5. Secrets are referenced, never embedded, and never logged. Redaction at the log handler is a backstop, not permission.
+6. Public functions get type hints and a Google-style docstring.
+7. Tests accompany the change, and cover the failure paths.
+
+## Troubleshooting
+
+**`make install` fails on the Python version.** `make install PYTHON=python3.12`, or install 3.12+.
+
+**`taskctl: command not found`.** Use `.venv/bin/taskctl`, or activate the environment with `source .venv/bin/activate`.
+
+**Configuration error at startup.** The message names the offending field. Compare against `.env.example`; an unknown `TASKCONTROL_*` variable is rejected too, so check for a typo.
+
+**Tests behave differently from a direct run.** The suite clears every `TASKCONTROL_*` variable and ignores `.env` so results do not depend on your shell. A test that needs a setting should build it explicitly with `load_settings(...)`.
+
+**`mypy` passes locally but fails in CI.** CI runs 3.12 and 3.13. Check the version in the failing job.

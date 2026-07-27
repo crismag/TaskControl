@@ -2,7 +2,7 @@
 
 - Document level: **supporting**
 - Lifecycle state: Canonical
-- Audit date: 2026-07-26
+- Audit date: 2026-07-26 (updated after Wave 0)
 - Performed during: the repository canonicalization pull request
 - Policy: ADR 0017
 
@@ -75,6 +75,7 @@ Net change from the pre-canonicalization repository: 77 → 89 files. Nothing wa
 | `decisions/0016_EXECUTION_STATE_AND_OUTCOME_TAXONOMY.md` | Canonical | **New.** Resolves three rival outcome vocabularies; splits lifecycle state from terminal outcome |
 | `decisions/0017_DOCUMENTATION_LEVELS_AND_CANONICALIZATION.md` | Canonical | **New.** Documentation levels, five lifecycle states, supersession rule, prohibition on conflict-driven document creation |
 | `decisions/0018_INTERNAL_SCHEDULER_BEFORE_ARTEFACT_DEPLOYMENT.md` | Canonical | **New.** Resolves the generation-versus-orchestration thesis conflict by ordering them |
+| `decisions/0019_COMPOSITION_ROOTS_INSIDE_THE_PACKAGE.md` | Canonical | **New, Wave 0.** Corrects the `apps/` placement in ADR 0015: a top-level `apps/` is absent from an installed wheel |
 | `engineering/README.md` | Canonical | Handbook index; precedence claim replaced by a pointer |
 | `engineering/**` (12 files) | Canonical | Charter, laws, structure, dependency rules, standards, quality, governance, AI policy |
 | `engineering/repository/10_REPOSITORY_STRUCTURE.md` | Canonical | **Sole authority for the directory tree** per ADR 0015 |

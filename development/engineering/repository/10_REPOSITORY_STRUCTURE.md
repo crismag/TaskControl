@@ -8,8 +8,11 @@ The repository should make ownership and dependency direction visible.
 ## Recommended top-level shape
 
 ```text
-apps/              # composition roots and executable entry points
 src/taskcontrol/
+  apps/             # composition roots and executable entry points
+    api/            #   builds and starts the ASGI application
+    cli/            #   builds and starts the CLI
+    worker/         #   (Phase 3) builds and starts the worker
   domain/           # entities, value objects, policies, domain services
   application/      # use cases, commands, queries, orchestration
   ports/            # interfaces required by application/domain
@@ -17,18 +20,23 @@ src/taskcontrol/
   api/              # HTTP transport and schemas
   cli/              # CLI transport
   infrastructure/   # configuration, logging, persistence setup, runtime wiring
+  common/           # cross-cutting stable utilities and the error taxonomy
 web/                # React application
+migrations/         # Alembic
+schemas/            # exported JSON Schema for portable definitions
+examples/           # runnable sample task definitions
 tests/              # tests mirroring production boundaries
+docs/               # user and developer documentation
 development/        # authoritative project knowledge
 ```
 
-Actual names may evolve through ADRs, but responsibilities must remain equivalent.
+This is the single normative statement of the tree (ADR 0015). Composition roots sit inside the installed package so console scripts and ASGI factories resolve from a wheel (ADR 0019). Actual names may evolve through further ADRs, but responsibilities must remain equivalent.
 
 ## Directory responsibilities
 
 ### `apps/`
 
-Contains executable entry points and dependency composition only.
+Contains executable entry points and dependency composition only. `apps/api` and `apps/cli` **wire**; `api/` and `cli/` **transport**. A router or a command body in `apps/` is misplaced.
 
 Allowed:
 
