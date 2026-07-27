@@ -10,10 +10,14 @@ No other document publishes a repository-wide reading order or the precedence la
 
 ## What TaskControl is
 
-TaskControl is a **cron-backed operational task management and asynchronous orchestration
-platform**. Cron owns recurring activation; TaskControl owns task lifecycle, cron
-management, operational knowledge, remote API contracts, durable queued work, execution
-services, and audit (ADR 0022).
+TaskControl is an **operational automation platform**. It manages the full lifecycle of
+**operational capabilities** — definition, deployment, activation, execution, observation,
+governance, history, and audit. It automates the work of production engineers, not just the
+execution of scripts.
+
+Activation comes in two kinds: **recurring**, owned by cron (ADR 0022), and **on-demand**,
+arriving through CLI, REST, MCP, or any future transport. The domain is transport-independent
+and modelled around capabilities and requests, never around infrastructure (ADR 0025).
 
 Already-deployed recurring work keeps running when TaskControl's API and web interface are
 down. See `product/PRODUCT_VISION.md`.
@@ -25,8 +29,9 @@ product direction changed on 2026-07-27: cron owns recurring activation (ADR 002
 completed execution services are repositioned as supporting capability, not discarded, and
 realignment wave R0 has reconciled the canonical documentation.
 
-The previous Wave 4 is stopped. The next action is **R1 — Wave 3 compatibility review** of
-`10_IMPLEMENTATION_BLUEPRINT.md`. High-level product and architecture documentation is frozen: changes at Level 0 or Level 1 now require an ADR and an explicit supersession analysis (ADR 0017).
+R0.1 then re-cut the model around operational capabilities and two kinds of activation
+(ADR 0025). The previous Wave 4 is stopped. The next action is **R1 — Wave 3 compatibility
+review** of `10_IMPLEMENTATION_BLUEPRINT.md`. High-level product and architecture documentation is frozen: changes at Level 0 or Level 1 now require an ADR and an explicit supersession analysis (ADR 0017).
 
 ## Documentation levels
 
@@ -69,7 +74,9 @@ Exactly one document answers each of these. No other document may restate the an
 | What is the delivery order? | `product/PRODUCT_ROADMAP.md` (phases) → `10_IMPLEMENTATION_BLUEPRINT.md` (waves) |
 | What is the directory tree? | `engineering/repository/10_REPOSITORY_STRUCTURE.md` (per ADR 0015) |
 | What are the execution states and outcomes? | ADR 0016 |
+| What is the primary domain concept? | ADR 0025 — the operational capability |
 | What activates recurring work? | ADR 0022 — cron, never TaskControl |
+| How do transports relate to the domain? | ADR 0025 — adapters over one application service |
 | How is concurrent work claimed? | ADR 0023 — one durable claim capability |
 | What happens if control state is unreachable? | ADR 0024 — per-task activation policy |
 | What does a domain concept mean? | `domain/` |
@@ -134,7 +141,7 @@ Exactly one document answers each of these. No other document may restate the an
 | --- | --- |
 | `architecture/ARCHITECTURE_OVERVIEW.md` | Style, layers, runtime flow, topology, boundaries |
 | `domain/README.md` … `domain/09_*.md` | The domain handbook (11 files) |
-| `decisions/README.md`, `decisions/00NN_*.md` | ADRs 0001–0024 |
+| `decisions/README.md`, `decisions/00NN_*.md` | ADRs 0001–0025 |
 | `engineering/README.md` and subdirectories | Charter, laws, structure, dependency rules, standards, quality, governance, AI policy |
 
 ### Level 2 — Blueprint

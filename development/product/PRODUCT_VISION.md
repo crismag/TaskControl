@@ -3,7 +3,7 @@
 - Document level: **0 — Identity**
 - Lifecycle state: Canonical
 - Governs: everything below Level 0. When another document disagrees with this one, this one is right.
-- Related: ADR 0022 (cron owns recurring activation)
+- Related: ADR 0022 (cron owns recurring activation), ADR 0025 (capability and activation model)
 
 ## Mission
 
@@ -12,10 +12,16 @@ govern — without replacing the scheduler an operator already trusts.
 
 ## North star
 
-> **TaskControl is a cron-backed operational task management and asynchronous orchestration
-> platform. It lets people and remote systems define, submit, govern, observe, and maintain
-> operational work without requiring users to understand cron or operate a replacement
-> scheduler.**
+> **TaskControl is an operational automation platform. It manages the full lifecycle of
+> operational capabilities — definition, deployment, activation, execution, observation,
+> governance, history, and audit — so that people, applications, and AI systems can define
+> operational work once and activate it through any supported mechanism.**
+>
+> **It automates the work of production engineers, not just the execution of scripts.**
+
+Cron remains the operating-system scheduler for recurring activation. TaskControl does not
+replace it; it automates everything experienced production engineers have historically built
+around it.
 
 ## The problem
 
@@ -33,6 +39,36 @@ years. What gets lost is everything around them:
 Cron does its job well. The knowledge and control *around* cron is what is missing, and that
 is the gap TaskControl fills.
 
+## The primary concept
+
+> An **Operational Capability** is a reusable, versioned, independently deployable definition
+> of something the organisation can do: backup, cleanup, market close, send report, health
+> check, reconcile.
+
+The same capability may be scheduled nightly, called over REST, requested through MCP, queued
+by another application, or run by hand. It is one capability; each run is an **execution
+instance** of it (ADR 0025).
+
+```text
+Operational Capability  ->  Execution Request  ->  Execution Instance  ->  Outcome
+```
+
+TaskControl is modelled around capabilities and requests, **not** around the infrastructure
+that happens to serve them. Cron, the queue, REST, and MCP are activation mechanisms and
+adapters — never the centre.
+
+## Two kinds of activation
+
+| Kind | Meaning | Mechanism |
+|---|---|---|
+| **Recurring** | "It is now time to execute this capability." | cron |
+| **On-demand** | "Somebody has requested this work." | CLI, REST, MCP, and future transports |
+
+Deferred on-demand work is persisted in the **queue** — which is infrastructure, not a source
+— until a cron-woken worker claims it.
+
+The domain is transport-independent: adding a transport is an adapter, never a domain change.
+
 ## The boundary that defines the product
 
 **Cron activates. TaskControl governs.**
@@ -47,20 +83,22 @@ offers.
 
 ## Product pillars
 
-1. **Cron-backed task management.** Users describe schedules as "every weekday at 06:00", or
-   as a validated expression when they prefer. TaskControl renders managed cron artefacts,
-   applies them safely, and keeps intended and installed state aligned.
-2. **Drop-in runnable management.** A runnable and its metadata placed in an approved
-   directory is discovered, validated, and registered — without anyone editing a crontab.
-3. **Operational knowledge.** Every task carries purpose, owner, source, schedule, target,
-   criticality, runbook, inputs, outputs, dependencies, review status, and evidence.
-4. **Remote operations API.** Other systems manage jobs and submit work through
-   authenticated contracts rather than SSH, filesystem edits, or crontab manipulation.
-5. **Cron-woken asynchronous queue.** Remote callers submit durable work items. Cron
-   periodically wakes short-lived workers that claim, process, retry, and record them.
-6. **Optional execution services.** TaskControl can wrap execution to add locking, timeout,
-   logging, evidence, retries, and outcome classification. These support management and
-   observability; they never become the recurring scheduler.
+1. **Capability lifecycle management.** Define once; deploy, activate, execute, observe, and
+   govern through one consistent lifecycle, whatever activated it.
+2. **Recurring activation through managed cron.** Users describe schedules as "every weekday
+   at 06:00", or as a validated expression when they prefer. TaskControl renders managed cron
+   artefacts, applies them safely, and keeps intended and installed state aligned.
+3. **Portable capability packages.** A package placed in an approved directory is discovered,
+   validated, and registered — without anyone editing a crontab or changing application code.
+4. **Operational knowledge.** Every capability carries purpose, owner, business impact,
+   dependencies, runbook, failure procedure, expected duration and frequency, and review
+   status. Knowledge is part of the platform, not a feature of it.
+5. **On-demand activation through any transport.** CLI, REST, MCP, and future transports are
+   adapters over the same application services. Deferred requests are persisted in the queue
+   and claimed by cron-woken workers.
+6. **Bounded execution services.** Locking, timeout, capture, retries, evidence, and outcome
+   classification. Execution answers only "what capability should run"; it owns neither
+   scheduling, nor deployment, nor orchestration.
 
 ## Product value
 
@@ -75,20 +113,23 @@ Users should be able to answer:
 
 ## Design principles
 
-1. **Cron-backed, not cron-replacing.** Activation belongs to a mechanism operators already
-   depend on.
-2. **Standalone first.** TaskControl delivers value by itself, with no external platform.
-3. **General purpose.** The core stays independent of any specific business domain.
-4. **Availability over centralisation.** Deployed recurring work survives control-plane
+1. **Operational capability is the primary concept.** Activation and execution are separate
+   concerns; infrastructure is an adapter, never the centre.
+2. **Cron-backed, not cron-replacing.** Recurring activation belongs to a mechanism operators
+   already depend on.
+3. **Transport-independent.** Adding a transport is an adapter, never a domain change.
+4. **Standalone first.** TaskControl delivers value by itself, with no external platform.
+5. **General purpose.** The core stays independent of any specific business domain.
+6. **Availability over centralisation.** Deployed recurring work survives control-plane
    downtime.
-5. **No cron literacy required.** Ordinary authoring never demands cron syntax.
-6. **Observable by default.** State, logs, history, and audit evidence are first-class.
-7. **Explicit operational truth.** Skip, block, failure, timeout, cancellation, and unproven
+7. **No cron literacy required.** Ordinary authoring never demands cron syntax.
+8. **Observable by default.** State, logs, history, and audit evidence are first-class.
+9. **Explicit operational truth.** Skip, block, failure, timeout, cancellation, and unproven
    state stay distinct — a zero exit code is not proof of success.
-8. **Stable contracts.** Clients integrate through documented interfaces, never internals.
-9. **Human control.** Consequential actions can be reviewed, approved, paused, cancelled,
+10. **Stable contracts.** Clients integrate through documented interfaces, never internals.
+11. **Human control.** Consequential actions can be reviewed, approved, paused, cancelled,
    and audited.
-10. **Extensible without capture.** Plugins and adapters extend the product without
+12. **Extensible without capture.** Plugins and adapters extend the product without
     redefining it.
 
 ## Explicit non-goals
@@ -108,16 +149,18 @@ identity, and a capability that merely makes TaskControl resemble one of them is
 | Owner | Responsibilities |
 |---|---|
 | **Cron** | Durable time-based activation; invoking the installed command; continuing to wake jobs when TaskControl's API and UI are unavailable |
-| **TaskControl** | Task definitions and revisions; human-friendly schedule authoring; cron artefact generation and lifecycle; drop-in discovery; task inventory and operational knowledge; remote API contracts; durable queued work state; execution services; drift, audit, and governance |
+| **TaskControl** | Capability definitions and revisions; human-friendly schedule authoring; cron artefact generation and lifecycle; package discovery; inventory and operational knowledge; transport adapters and application services; durable queued request state; execution services; drift, audit, and governance |
 | **The runnable** | The domain work itself; its side effects; its own idempotency where repeat execution is possible; domain validation not delegated to TaskControl |
 
 ## Product test
 
 A capability belongs in the core when it materially improves at least one of:
 
-1. ordinary users managing scheduled work without understanding cron;
+1. ordinary users expressing operational intent without understanding cron, queues, or
+   runtimes;
 2. operators gaining reliable knowledge and control over operational tasks;
-3. remote systems safely submitting and inspecting asynchronous work;
+3. applications, AI systems, and people safely submitting and inspecting work through any
+   transport;
 4. cron-backed work staying dependable without a persistent TaskControl scheduler;
 5. task state, ownership, changes, and outcomes becoming auditable.
 

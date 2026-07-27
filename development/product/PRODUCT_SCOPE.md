@@ -3,15 +3,19 @@
 - Document level: **0 — Identity**
 - Lifecycle state: Canonical
 - Sole authority for what is in and out of scope
-- Related: ADR 0022 (cron owns activation), ADR 0023 (durable claims), ADR 0024 (activation policy)
+- Related: ADR 0022 (cron owns activation), ADR 0023 (durable claims), ADR 0024 (activation policy), ADR 0025 (capability and activation model)
 
 ## Core responsibility
 
-TaskControl owns the lifecycle, knowledge, and governance of operational work: definition,
-human-friendly schedule authoring, cron artefact management, drop-in registration, remote
-submission, durable queued work, execution services, observation, and audit.
+TaskControl owns the lifecycle, knowledge, and governance of **operational capabilities**:
+definition, human-friendly schedule authoring, cron artefact management, package
+registration, request submission through any transport, durable queued requests, execution
+services, observation, and audit.
 
 **It does not own recurring activation.** Cron does (ADR 0022).
+
+Scope is defined around capabilities and execution requests, never around infrastructure.
+Cron, the queue, REST, and MCP are activation mechanisms and adapters (ADR 0025).
 
 ## In scope for the base product
 
@@ -39,12 +43,16 @@ submission, durable queued work, execution services, observation, and audit.
 - durable claims providing overlap protection and work-item claiming (ADR 0023);
 - explicit activation policy when control state is unreachable (ADR 0024).
 
-### Remote operations
+### On-demand activation and transports
 
-- REST API for task management and status;
-- asynchronous work-item submission with durable acceptance;
-- cron-woken, bounded queue workers;
-- web application and CLI access;
+- application services accepting an execution request, independent of transport;
+- REST API for capability management, submission, and status;
+- CLI for immediate and deferred requests;
+- MCP and future transports as **adapters over the same application services** — a new
+  transport is adapter work, never a domain change, and therefore not a roadmap capability
+  in its own right (ADR 0025);
+- durable queue persisting deferred requests, claimed by cron-woken bounded workers;
+- web application access;
 - plugin, adapter, event, and webhook extension points.
 
 ### Operational support
@@ -57,6 +65,7 @@ submission, durable queued work, execution services, observation, and audit.
 TaskControl does not own:
 
 - **recurring time-based activation** — cron does;
+- transport-specific behaviour in the domain — every transport is an adapter;
 - generic DAG or workflow orchestration competing with Airflow, Temporal, Prefect, or
   LangGraph;
 - high-throughput message brokering competing with Kafka, RabbitMQ, or Celery;
@@ -71,7 +80,10 @@ External systems may submit, control, and observe work through public interfaces
 
 ## Deliberate limits on the queue
 
-The work-item queue is intentionally smaller than a broker:
+The queue is **infrastructure, not an activation source**. It persists deferred on-demand
+requests until a worker claims them; the activation source is the request that created them.
+
+It is intentionally smaller than a broker:
 
 - cron-woken rather than continuously polling;
 - bounded per invocation, so one worker cannot monopolise a host;
@@ -103,9 +115,14 @@ met this boundary.
 
 Future phases unless evidence requires otherwise:
 
-- asynchronous work-item API and cron-woken workers beyond the first bounded slice;
+- asynchronous request API and cron-woken workers beyond the first bounded slice;
+- MCP and other transport adapters (adapter work, sequenced by demand rather than by phase);
 - systemd, Kubernetes, and Windows scheduler adapters;
-- remote hosts, distributed worker fleets, and multi-host inventory;
+- **distributed execution across hosts.** The architecture must permit it from day one —
+  capability packages, scheduler adapters, execution adapters, and persistence adapters are
+  already the seams. The implementation stays single-machine until a real requirement
+  arrives, because coordination built before anyone needs it is coordination designed
+  against guesses;
 - high availability and clustering;
 - complex tenancy and enterprise federation;
 - marketplace-style plugins;

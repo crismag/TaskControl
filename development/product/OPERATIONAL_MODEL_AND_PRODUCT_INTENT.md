@@ -180,6 +180,10 @@ Operational work may be activated through multiple mechanisms.
 
 The activation mechanism does not change the operational work itself.
 
+> **Refined later.** These five were subsequently reduced to **two kinds of activation** —
+> recurring (cron) and on-demand (CLI, REST, MCP), with the queue as the persistence
+> mechanism for deferred on-demand requests. See `PRODUCT_DESIGN_VISION.md` and ADR 0025.
+
 ---
 
 ## Why small executable tasks
@@ -242,6 +246,12 @@ record outcome
 TaskControl standardises this proven pattern.
 
 The queue is therefore another activation source for operational work.
+
+> **Refined later.** The stable model treats the queue as **infrastructure**, not an
+> activation source: it persists deferred on-demand requests until a cron-woken worker claims
+> them, and the activation source is the *request* that created them. See
+> `PRODUCT_DESIGN_VISION.md` and ADR 0025. The pattern described above is unchanged; only its
+> naming is.
 
 ---
 

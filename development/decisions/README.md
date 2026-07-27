@@ -59,6 +59,7 @@ An ADR may refine a lower-level document but must not silently contradict approv
 - [0022 — Cron Owns Recurring Activation](0022_CRON_BACKED_ACTIVATION.md)
 - [0023 — Overlap Leases and Queue Claims Are One Capability](0023_DURABLE_CLAIM_AS_ONE_CAPABILITY.md)
 - [0024 — Activation Policy When Control State Is Unreachable](0024_ACTIVATION_POLICY_UNDER_DEGRADED_CONTROL_STATE.md)
+- [0025 — Operational Capability, Activation Policy, and Transport Independence](0025_OPERATIONAL_CAPABILITY_AND_ACTIVATION_MODEL.md)
 
 ## When an ADR is required
 

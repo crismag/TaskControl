@@ -13,9 +13,38 @@ dependable substrate underneath, not the interface on top: a user should never n
 a cron expression for ordinary authoring, and should never be prevented from reading or
 overriding the artefact TaskControl generates. The user should describe what must happen, when it should happen, where it should run, under what conditions it is allowed to run, and what outcome proves success. TaskControl is responsible for turning that intent into execution and operational control.
 
-> The user defines intent. TaskControl resolves it into safe, observable execution.
+> **TaskControl automates the work of production engineers, not just the execution of scripts.**
 
-This sentence is the primary product rule. Every feature, API, screen, schema, adapter, and workflow should be evaluated against it.
+This is the primary product rule. Every feature, API, screen, schema, adapter, and workflow should be evaluated against it.
+
+Production engineers do not think in queues, schedulers, and runtimes. They think:
+
+- "Run this tomorrow after market close."
+- "Roll this out to the production fleet."
+- "Tell me if anything fails."
+- "Generate the daily report."
+- "Retry the failed reconciliation."
+
+TaskControl should let them express those operational intentions and handle the mechanics underneath. A feature that makes the mechanics more visible rather than less is usually the wrong feature.
+
+Restated for implementation: *the user defines intent; TaskControl resolves it into safe, observable execution.*
+
+## Small, portable capabilities
+
+Operational systems evolve into many small executable units, not one monolithic automation application. TaskControl encourages that and manages the lifecycle around it.
+
+A capability package should carry everything needed to understand and execute it:
+
+```text
+backup/
+    task.yaml
+    run.sh
+    README.md
+    config/
+    tests/
+```
+
+Each capability should be independently executable, testable, deployable, observable, and documented. TaskControl **discovers** packages rather than requiring application code changes — which is why drop-in discovery is a design position, not a convenience feature.
 
 ## How intent becomes activation
 

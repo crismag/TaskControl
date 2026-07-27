@@ -1,6 +1,10 @@
 # TaskControl
 
-TaskControl is a **cron-backed operational task management and asynchronous orchestration platform**. It lets people and remote systems define, submit, govern, observe, and maintain operational work without needing to understand cron or run a replacement scheduler.
+TaskControl is an **operational automation platform**. It manages the full lifecycle of operational capabilities — definition, deployment, activation, execution, observation, governance, history, and audit — so people, applications, and AI systems can define operational work once and activate it through any supported mechanism.
+
+**It automates the work of production engineers, not just the execution of scripts.**
+
+Activation comes in two kinds. **Recurring** activation belongs to cron, which says "it is now time to run this". **On-demand** activation arrives through the CLI, REST, or MCP, when somebody requests the work. Either way the capability, the execution, and the recorded outcome are the same.
 
 **Cron activates. TaskControl governs.** TaskControl does not replace cron and does not require an always-running scheduler of its own — your recurring jobs keep running even when the TaskControl API and web interface are down.
 

@@ -50,6 +50,34 @@ in this reconciliation, all in place rather than as a new package:
 Deliberately **not** changed: Wave 3 source code. R0 was documentation-only; the four source
 docstrings still asserting the old direction are itemised in blueprint R1.
 
+## Realignment R0.1 — 2026-07-27
+
+The owner supplied the operational model and design vision, then refined the domain model:
+two kinds of activation rather than five sources, the queue as infrastructure rather than a
+source, and **Operational Capability** as the primary concept in place of "operational work".
+
+| File | Change |
+|---|---|
+| `decisions/0025_OPERATIONAL_CAPABILITY_AND_ACTIVATION_MODEL.md` | **New.** Capability/request/instance; activation policy vs mechanism; transport independence; distribution ready but not built |
+| `product/PRODUCT_DESIGN_VISION.md` | Owner's refinement appended, original text preserved; principles 1 and 9 updated |
+| `product/PRODUCT_VISION.md` | North star re-cut around capability lifecycle; pillars and principles reordered; two kinds of activation |
+| `product/PRODUCT_PHILOSOPHY.md` | "TaskControl automates the work of production engineers, not just the execution of scripts" becomes the primary rule; portable capability packages added |
+| `product/PRODUCT_SCOPE.md` | Capability-centred; transports as adapters; queue as infrastructure; distribution architecture-ready but deferred |
+| `product/INTEGRATION_STRATEGY.md` | Transport-independence rule stated as governing; MCP named as an adapter |
+| `product/PRODUCT_ROADMAP.md` | Transports are not roadmap features; Phase 2 renamed to on-demand activation; Phase 3 distribution gated on real need |
+| `architecture/ARCHITECTURE_OVERVIEW.md` | Conceptual model layered capability → policy → mechanism → execution → observation; distribution-readiness section |
+| `domain/README.md` | Capability, execution request, execution instance, activation policy and mechanism, queue — each mapped to current code names |
+| `10_IMPLEMENTATION_BLUEPRINT.md` | R5 leads with the application service so transports stay adapters; transport adapters excluded from waves |
+| `00_CONTEXT_INDEX.md` | Identity, authority map, and status updated |
+
+**Corrections to R0.** R0's "cron-backed" north star put infrastructure in the subject
+position, and its five-activation-source list treated the queue as a source. Both are
+superseded by ADR 0025. R0's cron mechanics, durable claim, and activation policy stand.
+
+An earlier suggestion to move multi-server work earlier was **wrong** and is withdrawn: the
+architecture stays ready, the implementation stays single-machine until a real requirement
+arrives.
+
 ## Summary
 
 | State | Files |

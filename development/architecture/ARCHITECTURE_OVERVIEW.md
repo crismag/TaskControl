@@ -3,9 +3,44 @@
 - Document level: **1 — Architecture**
 - Lifecycle state: Canonical
 - Supersedes: `archive/02_ARCHITECTURE.md`, stack sections of `archive/04_TECHNOLOGY_AND_REPOSITORY_STRUCTURE.md`
-- Realigned by: ADR 0022 (cron owns activation), ADR 0023 (durable claims), ADR 0024 (activation policy)
+- Realigned by: ADR 0022 (cron owns activation), ADR 0023 (durable claims), ADR 0024 (activation policy), ADR 0025 (capability and activation model)
 - Governed by: `../product/PRODUCT_SCOPE.md`, `../decisions/`
 - Does not restate: the directory tree (`../engineering/repository/10_REPOSITORY_STRUCTURE.md`), execution vocabulary (ADR 0016), delivery order (`../10_IMPLEMENTATION_BLUEPRINT.md`)
+
+## The conceptual model
+
+The architecture is layered around the capability, not around the infrastructure serving it
+(ADR 0025):
+
+```text
+Operational Capability          reusable, versioned, independently deployable definition
+        |
+Activation Policy               recurring | immediate | deferred        (domain)
+        |
+Activation Mechanism            cron | CLI | REST | MCP | queue worker  (adapters)
+        |
+Execution                       bounded, short-lived, records what happened
+        |
+Observation                     history, audit, metrics, logs
+```
+
+Two rules follow, and both are checkable:
+
+1. **Activation never redefines execution.** Whatever activated a request — time arriving, a
+   person, an application, an AI system — the execution path is the same one.
+2. **The domain is transport-independent.** Every transport is an adapter over the same
+   application services. No domain module may branch on activation mechanism; the mechanism
+   is recorded as provenance, never consulted.
+
+### Two kinds of activation
+
+| Kind | Meaning | Mechanism |
+|---|---|---|
+| Recurring | "It is now time to execute this capability." | cron |
+| On-demand | "Somebody has requested this work." | CLI, REST, MCP, future transports |
+
+The **queue is infrastructure**, not an activation source: it persists deferred on-demand
+requests until a cron-woken worker claims them. Immediate requests bypass it.
 
 ## Architectural style
 
@@ -166,6 +201,17 @@ second cron activation, because that activation is a different process.
 ## Extension constraints
 
 New platform support is added through adapters, never through conditionals spread across
-domain logic. A scheduler adapter **manages an external scheduler**; it never becomes one. New run conditions return structured decisions carrying allowed/denied state, reason code, human explanation, and evidence.
+domain logic. A scheduler adapter **manages an external scheduler**; it never becomes one. A
+transport adapter translates a request; it never owns an execution path.
+
+### Distribution readiness
+
+The seams that permit multiple machines already exist: capability packages, scheduler
+adapters, execution adapters, and persistence adapters. Nothing may assume single-machine
+deployment in a way that would require a **domain** change to undo.
+
+The implementation nonetheless stays single-machine until a real requirement arrives.
+Distributed coordination built ahead of need is coordination designed against guesses. This
+is deliberate evolutionary architecture: ready, not built. New run conditions return structured decisions carrying allowed/denied state, reason code, human explanation, and evidence.
 
 Interfaces are introduced at genuine volatility boundaries. An extension point is not removed merely because only one implementation currently exists (engineering law 9).

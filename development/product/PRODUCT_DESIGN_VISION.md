@@ -264,7 +264,7 @@ Activation should never redefine execution.
 
 ## Design Principles
 
-1. Operational work is the primary domain concept.
+1. Operational **capability** is the primary domain concept; each run is an execution instance of it.
 2. Activation and execution are separate concerns.
 3. Cron remains the operating system scheduler.
 4. TaskControl manages operational lifecycle.
@@ -272,9 +272,90 @@ Activation should never redefine execution.
 6. Every operational capability should be portable.
 7. Every execution should be observable.
 8. Operational knowledge is part of the platform.
-9. Future activation mechanisms should reuse the same execution model.
+9. Future activation mechanisms should reuse the same execution model; the domain stays transport-independent.
 10. The platform should simplify operational engineering rather than expose implementation
     complexity.
+
+---
+
+## Refinement: capability, request, instance
+
+*Added after the original draft, and governing where the two differ. Recorded as ADR 0025.*
+
+The primary concept is named **Operational Capability**, not operational work.
+
+The same capability can be scheduled nightly, called by REST, requested through MCP, queued
+by another application, and run manually. It is one capability. Each run is an instance of
+it.
+
+```text
+Operational Capability      the reusable definition
+        ↓
+Execution Request           one request that it be performed
+        ↓
+Execution Instance          one recorded attempt
+        ↓
+Outcome
+```
+
+### Two kinds of activation, not five sources
+
+The "Activation Sources" table above lists five mechanisms. The stable model has **two kinds
+of activation**, served by several transports:
+
+```text
+                    Operational Capability
+                             │
+                             ▼
+                    Execution Request
+                             │
+        ┌────────────────────┴────────────────────┐
+        │                                         │
+Recurring Activation                    On-demand Activation
+        │                                         │
+        ▼                                         ▼
+     cron scheduler                     CLI / REST / MCP / Queue
+```
+
+Cron is fundamentally different from the others. Cron says *"it is now time to execute this
+capability."* A REST call says *"somebody has requested this work."* Those are different
+events, with different provenance and different authorisation.
+
+### The queue is infrastructure
+
+The queue is **not** an activation source. It is the persistence mechanism for deferred
+on-demand work:
+
+```text
+REST | MCP | CLI  →  submit work  →  queue  →  worker claims  →  execute
+```
+
+The activation source is the request. The queue stores it until a cron-woken worker claims
+it. An immediate CLI run bypasses the queue entirely.
+
+### Activation policy and activation mechanism
+
+```text
+Capability
+    ↓
+Activation Policy       recurring | immediate | deferred
+    ↓
+Activation Mechanism    cron | CLI | REST | MCP | queue worker
+    ↓
+Execution
+    ↓
+Observation
+```
+
+Policy belongs to the definition. Mechanism belongs to the adapter layer and is recorded as
+provenance on the request.
+
+### Transport independence
+
+> The domain model SHALL remain transport-independent. MCP, REST, CLI, and future transports
+> are adapters over the same application services.
+
+MCP therefore does not drive architecture and is not a roadmap feature. It plugs in.
 
 ---
 

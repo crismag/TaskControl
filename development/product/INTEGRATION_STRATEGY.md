@@ -7,6 +7,17 @@
 
 Allow external systems to use and extend TaskControl without depending on private implementation details.
 
+## The governing rule
+
+> **The domain model SHALL remain transport-independent. MCP, REST, CLI, and future
+> transports are adapters over the same application services** (ADR 0025).
+
+Every transport calls the same application service to submit an execution request. The
+domain neither knows nor cares which one called; the mechanism is recorded as provenance on
+the request, never consulted as a branch.
+
+If adding a transport would require a domain change, the domain is wrong.
+
 ## Supported integration surfaces
 
 - REST API for task, execution, scheduling, history, and administration operations.
@@ -15,7 +26,10 @@ Allow external systems to use and extend TaskControl without depending on privat
 - CLI for people, scripts, CI/CD, and local automation.
 - Webhooks and events for external reactions to lifecycle changes.
 - Plugins and adapters for execution backends, schedulers, notifications, secrets, and infrastructure.
-- Future SDKs generated or maintained against stable public contracts.
+- MCP, so AI systems submit operational work through the same lifecycle as any other caller.
+  Nothing about AI changes the execution model.
+- Future SDKs, gRPC, or GraphQL surfaces, generated or maintained against the same
+  application services.
 - Import and export formats for portable task definitions and operational data where appropriate.
 
 ## Contract rules
@@ -35,9 +49,10 @@ Allow external systems to use and extend TaskControl without depending on privat
 
 ## Integration categories
 
-### Clients
+### Transports
 
-Web UI, CLI, scripts, SDKs, business applications, KAE, and AI agents.
+Web UI, CLI, REST, MCP, scripts, SDKs, business applications, KAE, and AI agents. All are
+adapters over the same application services, and none is privileged.
 
 ### Execution adapters
 

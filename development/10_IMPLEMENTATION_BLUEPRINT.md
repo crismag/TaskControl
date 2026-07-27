@@ -63,9 +63,13 @@ adoption of existing cron entries; drop-in discovery and registration; durable c
 execution services recording attempts, outcomes, and logs; operational knowledge; CLI and
 public API foundations; restart recovery.
 
-**Not in Phase 1:** an internal scheduler of any kind; remote hosts and worker fleets;
-scheduler adapters beyond cron; a generic DAG language; broker-scale queueing; RBAC beyond a
-single administrator; notifications beyond a logging sink.
+**Not in Phase 1:** an internal scheduler of any kind; distributed execution across hosts —
+the seams stay open, the coordination is not built (ADR 0025); scheduler adapters beyond
+cron; a generic DAG language; broker-scale queueing; RBAC beyond a single administrator;
+notifications beyond a logging sink.
+
+Transport adapters — MCP, gRPC, GraphQL — are not waves. They are adapter work over the
+application services R5 establishes, sequenced by demand.
 
 **No component may run a recurring timer or polling loop for activation.** If a wave appears
 to need one, the design is wrong.
@@ -233,15 +237,21 @@ intended and installed state.
 
 ---
 
-### R5 — Asynchronous work-item API and cron-woken worker
+### R5 — On-demand activation: request API and cron-woken worker
 
 **Goal:** a remote system submits durable work without SSH, filesystem access, or crontab
-edits.
+edits — through an application service that any transport can call.
+
+The application service comes first and the REST adapter second, because MCP and any future
+transport must plug into the same service rather than grow a parallel path (ADR 0025). Adding
+MCP afterwards should be adapter work with no domain change; if it is not, this wave got the
+boundary wrong.
 
 #### Build
 
-`POST /api/v1/work-items` accepting a **registered task type**, payload, idempotency key,
-and optional not-before time, returning immediate durable acceptance. Persistent work-item
+An application service accepting an execution request with its provenance, then
+`POST /api/v1/work-items` over it, accepting a **registered task type**, payload, idempotency
+key, and optional not-before time, returning immediate durable acceptance. Persistent work-item
 state. A bounded, cron-woken worker that claims items using the same durable claim primitive
 (ADR 0023), processes them, records attempts, and moves them to terminal or retry-wait.
 Status queries.
@@ -255,6 +265,9 @@ Status queries.
   again.
 - One invocation processes a bounded number of items and exits.
 - The API refuses arbitrary shell commands.
+- No domain module branches on activation mechanism; the mechanism is recorded as provenance.
+- A second transport could be added by writing an adapter alone — demonstrated by a test that
+  drives the same application service directly, without HTTP.
 
 **Gate:** submit through the API with no worker running, wake a worker, and observe the
 terminal result — end to end.
