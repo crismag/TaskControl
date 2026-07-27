@@ -26,6 +26,7 @@ from taskcontrol.domain.common.values import (
     UtcTimestamp,
 )
 from taskcontrol.domain.deployment.strategies import DeploymentSpecification
+from taskcontrol.domain.scheduling.expressions import parse_schedule_expression
 from taskcontrol.domain.scheduling.schedules import CronExpression
 from taskcontrol.domain.tasks.actions import ActionSpecification
 from taskcontrol.domain.tasks.lifecycle import PublicationState, TaskLifecycleState
@@ -181,11 +182,7 @@ class TaskBundle:
             deployment=DeploymentSpecification.from_primitive(
                 revision_data.get("deployment") or {}
             ),
-            activation_schedule=(
-                CronExpression(revision_data["activation_schedule"])
-                if revision_data.get("activation_schedule")
-                else None
-            ),
+            activation_schedule=_parse_schedule(revision_data.get("activation_schedule")),
             change_summary=revision_data.get("change_summary", ""),
             published_at=(
                 UtcTimestamp.from_primitive(revision_data["published_at"])
@@ -275,3 +272,36 @@ def load_yaml(text: str) -> TaskBundle:
     if data is None:
         raise ValidationError("Task bundle is empty.")
     return TaskBundle.from_primitive(data)
+
+
+def _parse_schedule(value: object) -> CronExpression | None:
+    """Accept either a cron expression or a human schedule expression.
+
+    ``30 17 * * 1-5`` and ``every weekday at 17:30`` both work, and the distinction is made
+    on whether the text contains letters — cron's five fields never do, in the portable
+    subset TaskControl accepts. Nothing is guessed: an unrecognised expression of either
+    kind is rejected with the accepted forms.
+
+    A bundle written back out carries the cron expression, because that is the canonical
+    form and the one the deployed artefact contains. An author who writes English will see
+    it normalised on the next dump — the schedule is unchanged, but the wording is not
+    preserved.
+
+    Args:
+        value: The stored or authored schedule, or ``None``.
+
+    Returns:
+        The cron expression, or ``None`` when there is no schedule.
+
+    Raises:
+        ValidationError: If the text is neither a valid cron expression nor a recognised
+            schedule expression.
+    """
+    if not value:
+        return None
+    if not isinstance(value, str):
+        raise ValidationError("A schedule must be text.")
+
+    if any(character.isalpha() for character in value):
+        return parse_schedule_expression(value)
+    return CronExpression(value)

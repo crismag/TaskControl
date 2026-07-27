@@ -220,3 +220,83 @@ class TestStatus:
 
         result = runner.invoke(app, ["schedule", "status"])
         assert "No active capability" in result.output
+
+
+class TestDisableAndEnable:
+    """Disabling is not undeploying.
+
+    The definition, its revisions, and its history stay exactly where they are; only the
+    thing that causes cron to run it goes away. An operator disabling a job at 01:50 means
+    it must not run at 02:00, so the artefact goes immediately rather than at some later
+    apply.
+    """
+
+    def test_disable_removes_the_artefact_now(self, seeded: Path) -> None:
+        runner.invoke(app, ["schedule", "apply", "--yes"])
+        assert (seeded / "cron.daily" / "clean-scratch-volume").exists()
+
+        result = runner.invoke(app, ["schedule", "disable", "clean-scratch-volume"])
+
+        assert result.exit_code == 0
+        assert not (seeded / "cron.daily" / "clean-scratch-volume").exists()
+
+    def test_disable_leaves_the_definition_in_place(self, seeded: Path, tmp_path: Path) -> None:
+        """The point of disable rather than remove: you intend to turn it back on."""
+        runner.invoke(app, ["schedule", "apply", "--yes"])
+        runner.invoke(app, ["schedule", "disable", "clean-scratch-volume"])
+
+        from taskcontrol.domain.common.values import Slug
+        from taskcontrol.infrastructure.database import (
+            create_database_engine,
+            create_session_factory,
+        )
+
+        url = f"sqlite+pysqlite:///{(tmp_path / 'data' / 'taskcontrol.db').as_posix()}"
+        with UnitOfWork(create_session_factory(create_database_engine(url))) as uow:
+            task = uow.tasks.get_by_slug(Slug("clean-scratch-volume"))
+
+        assert task is not None
+        assert task.lifecycle_state is TaskLifecycleState.SUSPENDED
+
+    def test_a_disabled_capability_is_not_planned_for_deployment(self, seeded: Path) -> None:
+        """Lifecycle governs deployment, so a later apply must not quietly bring it back."""
+        runner.invoke(app, ["schedule", "apply", "--yes"])
+        runner.invoke(app, ["schedule", "disable", "clean-scratch-volume"])
+
+        runner.invoke(app, ["schedule", "apply", "--yes"])
+
+        assert not (seeded / "cron.daily" / "clean-scratch-volume").exists()
+
+    def test_disabling_one_leaves_the_others_running(self, seeded: Path) -> None:
+        runner.invoke(app, ["schedule", "apply", "--yes"])
+        runner.invoke(app, ["schedule", "disable", "clean-scratch-volume"])
+
+        assert (seeded / "cron.d" / "settlement-report").exists()
+
+    def test_enable_brings_it_back(self, seeded: Path) -> None:
+        runner.invoke(app, ["schedule", "apply", "--yes"])
+        runner.invoke(app, ["schedule", "disable", "clean-scratch-volume"])
+
+        result = runner.invoke(app, ["schedule", "enable", "clean-scratch-volume"])
+
+        assert result.exit_code == 0
+        assert (seeded / "cron.daily" / "clean-scratch-volume").exists()
+        assert runner.invoke(app, ["schedule", "verify"]).exit_code == 0
+
+    def test_disabling_something_that_does_not_exist_fails(self, seeded: Path) -> None:
+        result = runner.invoke(app, ["schedule", "disable", "no-such-capability"])
+        assert result.exit_code != 0
+
+
+class TestExplain:
+    def test_it_shows_the_cron_an_expression_produces(self, host: Path) -> None:
+        """Available before any capability exists — checking what you meant should not
+        require first defining the job you are unsure about."""
+        result = runner.invoke(app, ["schedule", "explain", "every weekday at 06:30"])
+
+        assert result.exit_code == 0
+        assert "30 6 * * 1-5" in result.output
+
+    def test_an_expression_it_cannot_parse_fails_rather_than_guessing(self, host: Path) -> None:
+        result = runner.invoke(app, ["schedule", "explain", "every other tuesday"])
+        assert result.exit_code != 0

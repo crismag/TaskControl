@@ -12,6 +12,7 @@ from typing import Annotated
 import typer
 
 from taskcontrol import __version__
+from taskcontrol.adapters.clock import SystemClock
 from taskcontrol.application.runtime import RunRequest
 from taskcontrol.cli.wiring import (
     build_activation_service,
@@ -19,9 +20,11 @@ from taskcontrol.cli.wiring import (
     build_reconciliation_service,
     build_runtime,
 )
+from taskcontrol.domain.common.identifiers import OwnerId
 from taskcontrol.domain.common.tracing import IdempotencyKey
 from taskcontrol.domain.common.values import Slug
 from taskcontrol.domain.execution.execution import Execution, TriggerSource
+from taskcontrol.domain.scheduling.expressions import describe, parse_schedule_expression
 from taskcontrol.infrastructure.database import (
     create_database_engine,
     database_url,
@@ -512,3 +515,63 @@ def reconcile(
             "They were most likely truncated by a power failure.",
             err=True,
         )
+
+
+@schedule_app.command("disable")
+def schedule_disable(
+    ctx: typer.Context,
+    task: Annotated[str, typer.Argument(help="Slug of the capability to disable.")],
+) -> None:
+    """Stop a capability running, without deleting anything.
+
+    Its definition, revisions, and history stay exactly where they are; only the artefact
+    that causes cron to run it is removed. The removal happens now rather than at the next
+    apply — an operator who disables a job at 01:50 expects it not to run at 02:00.
+    """
+    settings = _settings(ctx)
+    result = build_deployment_service(settings).disable(
+        Slug(task), actor=OwnerId.generate(), at=SystemClock().now()
+    )
+
+    if result.succeeded:
+        typer.echo(f"'{task}' is disabled and its cron artefact has been removed.")
+    else:
+        typer.echo(result.failure, err=True)
+    raise typer.Exit(code=0 if result.succeeded else 1)
+
+
+@schedule_app.command("enable")
+def schedule_enable(
+    ctx: typer.Context,
+    task: Annotated[str, typer.Argument(help="Slug of the capability to enable.")],
+) -> None:
+    """Return a disabled capability to service and redeploy its artefact."""
+    settings = _settings(ctx)
+    result = build_deployment_service(settings).enable(
+        Slug(task), actor=OwnerId.generate(), at=SystemClock().now()
+    )
+
+    if result.succeeded:
+        typer.echo(f"'{task}' is enabled and its cron artefact has been deployed.")
+    else:
+        typer.echo(result.failure, err=True)
+    raise typer.Exit(code=0 if result.succeeded else 1)
+
+
+@schedule_app.command("explain")
+def schedule_explain(
+    ctx: typer.Context,
+    expression: Annotated[
+        str,
+        typer.Argument(help='A schedule expression, such as "every weekday at 06:30".'),
+    ],
+) -> None:
+    """Show the cron expression a schedule expression produces, without saving anything.
+
+    Deliberately available before a capability exists. Checking what you meant should not
+    require first defining the job you are unsure about.
+    """
+    del ctx
+    cron = parse_schedule_expression(expression)
+    typer.echo(f"{expression}  ->  {cron.to_primitive()}")
+    typer.echo(f"reads back as: {describe(cron)}")

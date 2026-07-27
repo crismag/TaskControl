@@ -247,3 +247,68 @@ class TestExportedArtefacts:
         bundle = load_yaml(path.read_text(encoding="utf-8"))
         assert bundle.revision.change_summary
         assert bundle.task.description
+
+
+class TestHumanScheduleExpressions:
+    """A definition file may say when the work runs in English.
+
+    This is the second half of "no cron syntax required" — the first half was layout, which
+    classification already covered.
+    """
+
+    def test_a_human_expression_is_accepted(self) -> None:
+        original = (EXAMPLES / "settlement-report-task.yaml").read_text(encoding="utf-8")
+        human = original.replace(
+            "activation_schedule: 30 17 * * 1-5",
+            "activation_schedule: every weekday at 17:30",
+        )
+
+        bundle = load_yaml(human)
+
+        assert bundle.revision.activation_schedule is not None
+        assert bundle.revision.activation_schedule.to_primitive() == "30 17 * * 1-5"
+
+    def test_it_digests_identically_to_the_cron_form(self) -> None:
+        """The same schedule means the same thing, so it must digest the same.
+
+        Otherwise rewording a definition without changing when it runs would look like a
+        content change, and drift detection would report a difference that is not one.
+        """
+        original = (EXAMPLES / "settlement-report-task.yaml").read_text(encoding="utf-8")
+        human = original.replace(
+            "activation_schedule: 30 17 * * 1-5",
+            "activation_schedule: every weekday at 17:30",
+        )
+
+        assert load_yaml(human).revision.compute_digest() == (
+            load_yaml(original).revision.compute_digest()
+        )
+
+    def test_a_cron_expression_still_works(self) -> None:
+        """Nobody who already knows cron should be made to stop using it."""
+        original = (EXAMPLES / "settlement-report-task.yaml").read_text(encoding="utf-8")
+
+        bundle = load_yaml(original)
+
+        assert bundle.revision.activation_schedule is not None
+        assert bundle.revision.activation_schedule.to_primitive() == "30 17 * * 1-5"
+
+    def test_an_unrecognised_expression_is_refused(self) -> None:
+        original = (EXAMPLES / "settlement-report-task.yaml").read_text(encoding="utf-8")
+        nonsense = original.replace(
+            "activation_schedule: 30 17 * * 1-5",
+            "activation_schedule: every other tuesday",
+        )
+
+        with pytest.raises(ValidationError):
+            load_yaml(nonsense)
+
+    def test_dumping_writes_the_canonical_cron_form(self) -> None:
+        """Documented rather than hidden: the schedule is preserved, the wording is not."""
+        original = (EXAMPLES / "settlement-report-task.yaml").read_text(encoding="utf-8")
+        human = original.replace(
+            "activation_schedule: 30 17 * * 1-5",
+            "activation_schedule: every weekday at 17:30",
+        )
+
+        assert "activation_schedule: 30 17 * * 1-5" in dump_yaml(load_yaml(human))
