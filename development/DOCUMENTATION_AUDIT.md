@@ -78,6 +78,32 @@ An earlier suggestion to move multi-server work earlier was **wrong** and is wit
 architecture stays ready, the implementation stays single-machine until a real requirement
 arrives.
 
+## Post-realignment changes — 2026-07-27
+
+| File | Change |
+|---|---|
+| `product/PRODUCT_PHILOSOPHY.md` | **Recognition test** added: can a production engineer who has never seen TaskControl immediately recognise it as automating work they do by hand? States when the test is *failed*, not merely unmet |
+| `engineering/governance/40_DEFINITION_OF_DONE.md` | Recognition test applied to any user-visible change |
+| `10_IMPLEMENTATION_BLUEPRINT.md` | Recognition test added as a Phase 1 exit criterion alongside the functional ones |
+| `docs/DEVELOPMENT.md` | PostgreSQL setup documented for both a local server and Docker, with the dedicated-database warning |
+| `.github/workflows/ci.yml` | PostgreSQL 16 service on every push, plus a step that **fails the build if the PostgreSQL tests skip** |
+
+Code changed in the same period, outside the documentation-only scope of R0 and R0.1, because
+running the PostgreSQL suite for the first time exposed defects rather than gaps:
+
+| File | Change |
+|---|---|
+| `migrations/versions/0002_executions_and_attempts.py` | Boolean default `sa.text("0")` → `sa.false()`. The former is SQLite-only; PostgreSQL rejected the migration outright |
+| `tests/integration/conftest.py` | Harness variable renamed `TASKCONTROL_TEST_POSTGRES_URL` → `TC_TEST_POSTGRES_URL`, since the `TASKCONTROL_` namespace belongs to validated application settings; reset fixture now derives its table list from model metadata |
+| `src/taskcontrol/infrastructure/migrations.py` | Migration failures report the driver's own first line; URLs still never included |
+
+**Known and deliberate gaps**, both recorded rather than fixed silently:
+
+- Four Wave 3 source docstrings still assert the superseded internal-scheduler direction.
+  Itemised by file in blueprint R1; not edited in a documentation-only reconciliation.
+- `examples/` still demonstrates the data model rather than operational work, so the
+  repository currently **fails** the recognition test. Noted for R2.
+
 ## Summary
 
 | State | Files |
