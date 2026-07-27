@@ -1,8 +1,12 @@
 """TaskControl — define, schedule, execute, observe, and govern automated work.
 
-TaskControl is a standalone application. In the current phase it schedules and runs work
-itself through an internal scheduler; it does not write to any host scheduler
-configuration (ADR 0018).
+TaskControl is an operational automation platform. It manages the lifecycle of operational
+capabilities — definition, deployment, activation, execution, observation, and audit.
+
+**Cron owns recurring activation** (ADR 0022). TaskControl renders and installs managed cron
+artefacts, and cron invokes short-lived TaskControl wrappers. Nothing here runs a timer or a
+polling loop, and already-installed recurring work keeps running when the control plane is
+down.
 
 Layer boundaries and the dependency direction are normative in
 ``development/engineering/repository/11_DEPENDENCY_RULES.md`` and are enforced by

@@ -34,6 +34,7 @@ from taskcontrol.domain.common import (
 )
 from taskcontrol.domain.execution import TimeoutPolicy
 from taskcontrol.domain.tasks import (
+    CURRENT_REVISION_SCHEMA_VERSION,
     ActionSpecification,
     EnvironmentBinding,
     ExecutionControls,
@@ -194,7 +195,13 @@ class TestLoadingErrors:
         assert caught.value.details["expected_kind"] == "TaskBundle"
 
     def test_rejects_an_unsupported_schema_version(self) -> None:
-        text = dump_yaml(a_bundle()).replace("schema_version: '1.0'", "schema_version: '9.0'")
+        # Derived rather than hard-coded: a literal "1.0" here silently stopped matching
+        # when the schema moved to 1.1, leaving the test asserting against unmodified input.
+        current = CURRENT_REVISION_SCHEMA_VERSION.to_primitive()
+        text = dump_yaml(a_bundle()).replace(
+            f"schema_version: '{current}'", "schema_version: '9.0'"
+        )
+        assert "9.0" in text, "the substitution must actually apply"
         with pytest.raises(ValidationError) as caught:
             load_yaml(text)
         assert caught.value.details["bundle_schema_version"] == "9.0"

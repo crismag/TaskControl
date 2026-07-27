@@ -12,7 +12,7 @@ from collections.abc import Callable
 
 from taskcontrol.adapters.clock import SystemClock
 from taskcontrol.adapters.executors import default_registry
-from taskcontrol.adapters.locking import ProcessLocalOverlapLock
+from taskcontrol.adapters.locking.no_overlap_protection import NoOverlapProtection
 from taskcontrol.adapters.persistence.unit_of_work import UnitOfWork
 from taskcontrol.application.runtime import RuntimeService
 from taskcontrol.common.errors import NotFoundError, ValidationError
@@ -29,9 +29,12 @@ from taskcontrol.infrastructure.settings import Settings
 def build_runtime(settings: Settings) -> tuple[RuntimeService, Callable[[str], TaskId]]:
     """Build a runtime and a task resolver.
 
-    The overlap lock is created here, per invocation. That is correct for the CLI, where
-    one process runs one task, and it is another reminder that Phase 1 locking guards a
-    single process only (ADR 0021).
+    No overlap protection is wired in. `ProcessLocalOverlapLock` would guard only this
+    process, which under cron-backed activation guards nothing (R1 Finding 1), and wiring it
+    here would let a caller believe `OverlapPolicy.FORBID` was being honoured when it was
+    not. `NoOverlapProtection` is honest instead: it never refuses, and it says so.
+
+    Durable claims arrive in R2 (ADR 0023) and replace this.
 
     Args:
         settings: Validated settings.
@@ -49,7 +52,7 @@ def build_runtime(settings: Settings) -> tuple[RuntimeService, Callable[[str], T
     runtime = RuntimeService(
         unit_of_work_factory=unit_of_work_factory,
         executors=default_registry(),
-        lock=ProcessLocalOverlapLock(),
+        lock=NoOverlapProtection(),
         clock=SystemClock(),
     )
 

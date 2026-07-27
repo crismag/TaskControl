@@ -1,8 +1,8 @@
 """The execution runtime.
 
-One entry point from trigger to recorded outcome, used by the CLI, the API, and the
-internal scheduler alike. An execution that is created always reaches a terminal persisted
-state.
+One entry point from activation to recorded outcome, used by cron wrappers, queue workers,
+administrative run-now, and transport adapters alike. An execution that is created always
+reaches a terminal persisted state.
 """
 
 from __future__ import annotations

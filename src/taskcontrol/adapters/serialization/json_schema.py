@@ -22,7 +22,7 @@ from taskcontrol.domain.tasks.actions import (
     StdinPolicy,
 )
 from taskcontrol.domain.tasks.lifecycle import PublicationState, TaskLifecycleState
-from taskcontrol.domain.tasks.revision import CURRENT_REVISION_SCHEMA_VERSION
+from taskcontrol.domain.tasks.revision import CURRENT_REVISION_SCHEMA_VERSION, ActivationPolicy
 
 SCHEMA_ID = "https://taskcontrol.dev/schemas/task-bundle-v1.json"
 
@@ -204,6 +204,13 @@ def _controls_schema() -> dict[str, Any]:
             },
             "overlap": {"enum": _enum_values(OverlapPolicy)},
             "max_concurrent": {"type": "integer", "minimum": 1},
+            "activation_policy": {
+                "enum": _enum_values(ActivationPolicy),
+                "description": (
+                    "What a cron-woken wrapper does when control state is unreachable. "
+                    "Defaults to require_control_state."
+                ),
+            },
         },
     }
 

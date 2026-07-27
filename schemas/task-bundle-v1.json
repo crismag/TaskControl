@@ -112,6 +112,13 @@
         "controls": {
           "additionalProperties": false,
           "properties": {
+            "activation_policy": {
+              "description": "What a cron-woken wrapper does when control state is unreachable. Defaults to require_control_state.",
+              "enum": [
+                "require_control_state",
+                "continue_with_local_journal"
+              ]
+            },
             "max_concurrent": {
               "minimum": 1,
               "type": "integer"
@@ -223,7 +230,7 @@
     "schema_version": {
       "description": "Bundle schema version.",
       "examples": [
-        "1.0"
+        "1.1"
       ],
       "pattern": "^\\d+\\.\\d+$",
       "type": "string"

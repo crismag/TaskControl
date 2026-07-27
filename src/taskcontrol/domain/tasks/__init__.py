@@ -23,6 +23,7 @@ from taskcontrol.domain.tasks.lifecycle import (
 )
 from taskcontrol.domain.tasks.revision import (
     CURRENT_REVISION_SCHEMA_VERSION,
+    ActivationPolicy,
     ExecutionControls,
     TaskRevision,
 )
@@ -31,6 +32,7 @@ from taskcontrol.domain.tasks.task import Task
 __all__ = [
     "CURRENT_REVISION_SCHEMA_VERSION",
     "ActionSpecification",
+    "ActivationPolicy",
     "EnvironmentBinding",
     "ExecutionControls",
     "ExecutorType",

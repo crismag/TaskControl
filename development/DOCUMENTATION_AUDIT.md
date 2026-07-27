@@ -104,6 +104,18 @@ running the PostgreSQL suite for the first time exposed defects rather than gaps
 - `examples/` still demonstrates the data model rather than operational work, so the
   repository currently **fails** the recognition test. Noted for R2.
 
+## R1 — 2026-07-27
+
+| File | Change |
+|---|---|
+| `reviews/R1_WAVE3_COMPATIBILITY.md` | **New.** Evidence-based review; every claim produced by running the code |
+| `10_IMPLEMENTATION_BLUEPRINT.md` | R1 marked complete with its outcome; R2 gains two build items the review proved necessary |
+| `00_CONTEXT_INDEX.md` | Status advanced to R2; review indexed |
+
+Source changes, all authorised by the R1 scope: five docstrings corrected;
+`ProcessLocalOverlapLock` demoted to a test double with `NoOverlapProtection` wired in its
+place; `activation_policy` added to the revision at schema 1.1.
+
 ## Summary
 
 | State | Files |
