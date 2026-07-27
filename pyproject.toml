@@ -1,0 +1,125 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "taskcontrol"
+version = "0.1.0"
+description = "Define, schedule, execute, observe, and govern automated work."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "UNLICENSED" }
+authors = [{ name = "TaskControl maintainers" }]
+keywords = ["scheduler", "automation", "task", "operations", "cron"]
+classifiers = [
+  "Private :: Do Not Upload",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+  "pydantic>=2.7",
+  "pydantic-settings>=2.2",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+api = [
+  "fastapi>=0.111",
+  "uvicorn[standard]>=0.30",
+]
+dev = [
+  "taskcontrol[api]",
+  "pytest>=8.2",
+  "pytest-cov>=5.0",
+  "httpx2>=2.9",   # starlette.testclient requires httpx2; httpx is deprecated there
+  "mypy>=1.10",
+  "ruff>=0.5",
+]
+
+[project.scripts]
+taskctl = "taskcontrol.apps.cli.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/taskcontrol"]
+
+# ---------------------------------------------------------------------------
+# Ruff — engineering/standards/20_PYTHON_AND_APPLICATION_STANDARDS.md
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E", "W",      # pycodestyle
+  "F",           # pyflakes
+  "I",           # isort
+  "N",           # pep8-naming
+  "UP",          # pyupgrade
+  "B",           # bugbear
+  "A",           # builtin shadowing
+  "C4",          # comprehensions
+  "DTZ",         # timezone-aware datetimes — required by ADR 0016 and the standards
+  "T20",         # no print() in library code
+  "SIM",         # simplify
+  "PTH",         # pathlib over os.path
+  "RET",         # return consistency
+  "ARG",         # unused arguments
+  "S",           # bandit security rules
+  "D",           # docstrings
+]
+ignore = [
+  "D107",        # __init__ docstring — covered by the class docstring
+  "D203",        # conflicts with D211
+  "D213",        # conflicts with D212
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "S101", "ARG"]          # asserts and fixtures are the point
+"src/taskcontrol/cli/**" = ["T20"]         # the CLI writes to stdout by design
+"src/taskcontrol/apps/cli/**" = ["T20"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+# ---------------------------------------------------------------------------
+# mypy — strict for production code
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+warn_unused_configs = true
+show_error_codes = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--strict-config",
+]
+markers = [
+  "integration: exercises more than one layer or a real subprocess",
+]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["src/taskcontrol"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]

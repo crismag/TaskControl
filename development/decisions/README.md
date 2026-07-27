@@ -49,6 +49,11 @@ An ADR may refine a lower-level document but must not silently contradict approv
 - [0012 — SQLite First with PostgreSQL Compatibility](0012_SQLITE_POSTGRESQL_COMPATIBILITY.md)
 - [0013 — React and TypeScript for the Web Interface](0013_REACT_TYPESCRIPT_FRONTEND.md)
 - [0014 — Future Remote Agents Without Premature Distribution](0014_FUTURE_REMOTE_AGENTS.md)
+- [0015 — Canonical Repository Layout](0015_CANONICAL_REPOSITORY_LAYOUT.md)
+- [0016 — Execution State and Outcome Taxonomy](0016_EXECUTION_STATE_AND_OUTCOME_TAXONOMY.md)
+- [0017 — Documentation Levels and Repository Canonicalization](0017_DOCUMENTATION_LEVELS_AND_CANONICALIZATION.md)
+- [0018 — Internal Scheduler Before Scheduler-Artefact Deployment](0018_INTERNAL_SCHEDULER_BEFORE_ARTEFACT_DEPLOYMENT.md)
+- [0019 — Composition Roots Live Inside the Installed Package](0019_COMPOSITION_ROOTS_INSIDE_THE_PACKAGE.md)
 
 ## When an ADR is required
 

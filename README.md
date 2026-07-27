@@ -49,7 +49,14 @@ TaskControl Core must remain independent of any specific business domain, AI fra
 
 ## Current project stage
 
-**Documentation only — implementation has not started.** The product, domain, architecture, engineering, decision, and agent-operations context is complete and reconciled. The next action is Wave 0 of the implementation blueprint.
+**Early implementation — Wave 0 complete.** The project installs, passes lint, strict type checking, and its test suite, and exposes version and health through both the CLI and the API. There is no task, scheduling, or execution behaviour yet; that begins with Wave 1.
+
+```bash
+make install && make check
+.venv/bin/taskctl health
+```
+
+See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) to get set up, and the [implementation blueprint](development/10_IMPLEMENTATION_BLUEPRINT.md) for what is being built next.
 
 ### What the first release will and will not do
 

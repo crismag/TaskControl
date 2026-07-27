@@ -20,13 +20,14 @@ It does not restate the directory tree (see `engineering/repository/10_REPOSITOR
 
 ## Current position
 
-**Repository state: documentation only. No source code, no packaging, no tests.**
+**Repository state: Wave 0 complete. The project installs, lints, type-checks, and tests
+green. No product behaviour beyond version and health.**
 
-**Next action: Wave 0.**
+**Next action: Wave 1 — Domain core.**
 
 | Wave | Name | Status |
 | --- | --- | --- |
-| 0 | Foundation and quality gates | not started |
+| 0 | Foundation and quality gates | **complete** (2026-07-26) |
 | 1 | Domain core | not started |
 | 2 | Persistence and migrations | not started |
 | 3 | Runtime and executors | not started |
@@ -88,6 +89,31 @@ Per ADR 0018, TaskControl executes work itself in Phase 1 through an internal sc
 - No product behaviour beyond version and health.
 
 **Gate:** CI green on a pull request from a clean checkout.
+
+### Outcome
+
+Delivered as specified, with three deviations worth carrying forward:
+
+1. **ADR 0019** was raised during the wave. ADR 0015 placed composition roots in a
+   top-level `apps/`, which is absent from an installed wheel, so neither the `taskctl`
+   console script nor the ASGI factory could resolve outside a source checkout. Composition
+   roots moved to `src/taskcontrol/apps/`. A CI job now installs a built wheel into a clean
+   environment and runs both, so the claim stays proven.
+2. **Unrecognised `TASKCONTROL_*` variables are rejected.** A mistyped variable was
+   silently ignored, which is precisely the failure mode this product exists to remove from
+   scheduled operations. `load_settings` now fails with the variable name — never its value,
+   which may be secret.
+3. **HTTP status constants are literal integers**, not framework constants, which have
+   already been renamed once upstream.
+
+Beyond the listed scope, Wave 0 also delivered the error taxonomy (`common/errors.py`),
+correlation middleware, and API error rendering, because the health endpoints and the CLI
+both needed a stable failure contract to be testable.
+
+Verified: `make check` green; 80 tests; 96% statement coverage; `taskctl version` and
+`taskctl health` exit 0; `GET /api/v1/health` and `/api/v1/ready` return 200; invalid
+configuration exits 78; the architecture test was confirmed to fail on a deliberately
+planted forbidden import and pass once removed.
 
 ---
 
