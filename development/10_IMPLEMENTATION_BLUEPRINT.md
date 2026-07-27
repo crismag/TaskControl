@@ -110,10 +110,31 @@ Beyond the listed scope, Wave 0 also delivered the error taxonomy (`common/error
 correlation middleware, and API error rendering, because the health endpoints and the CLI
 both needed a stable failure contract to be testable.
 
-Verified: `make check` green; 80 tests; 96% statement coverage; `taskctl version` and
-`taskctl health` exit 0; `GET /api/v1/health` and `/api/v1/ready` return 200; invalid
-configuration exits 78; the architecture test was confirmed to fail on a deliberately
-planted forbidden import and pass once removed.
+Verified: `make check` green; `taskctl version` and `taskctl health` exit 0;
+`GET /api/v1/health` and `/api/v1/ready` return 200; invalid configuration exits 78; the
+architecture test was confirmed to fail on a deliberately planted forbidden import and
+pass once removed.
+
+### Follow-up: defects found by running the application
+
+Running the server — as opposed to running the suite — exposed two defects that the tests
+could not see, since both concerned what happens under a real ASGI server. Fixed in a
+follow-up commit; 96 tests, 95% coverage.
+
+1. **`api_host` and `api_port` did nothing.** They were validated, reported by
+   `taskctl health`, and logged at startup, but the bind address came from uvicorn's own
+   command line, so the reported configuration could disagree with reality. Added
+   `taskctl server`, which binds from settings; `infrastructure/server.py` owns process
+   startup.
+2. **Uvicorn's logs bypassed structured logging entirely.** `uvicorn` and `uvicorn.access`
+   ship with `propagate = False` and their own handlers, so the process emitted JSON for
+   application events and plain text for everything the server said, with no correlation
+   identifier on any request. Added `uvicorn_log_config`, and moved the access log into
+   the request middleware where correlation context is bound.
+
+Both are worth noting for later waves: **a Wave's acceptance criteria should include
+running the thing, not only testing it.** Waves 7 and 9 in particular assert behaviour that
+only appears under a real server or browser.
 
 ---
 

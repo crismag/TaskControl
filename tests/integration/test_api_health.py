@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -9,6 +11,7 @@ from taskcontrol import __version__
 from taskcontrol.api.middleware import CORRELATION_HEADER
 from taskcontrol.apps.api.main import create_app
 from taskcontrol.common.errors import NotFoundError, ValidationError
+from taskcontrol.infrastructure.logging import configure_logging, get_logger
 from taskcontrol.infrastructure.settings import Settings, load_settings
 
 pytestmark = pytest.mark.integration
@@ -115,3 +118,102 @@ def test_app_state_holds_the_settings_it_was_built_with() -> None:
     settings = load_settings(api_port=9999)
     app = create_app(settings)
     assert app.state.settings.api_port == 9999
+
+
+class TestAccessLog:
+    """One structured, correlated access record per request.
+
+    Uvicorn's access log is written after the response leaves the application, outside the
+    correlation context, so it cannot carry the identifier that makes a request
+    followable. TaskControl emits its own from the middleware instead.
+    """
+
+    def test_request_is_logged_with_correlation_and_timing(
+        self, settings: Settings, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        configure_logging(settings)
+        with TestClient(create_app(settings)) as client:
+            client.get("/api/v1/health", headers={CORRELATION_HEADER: "trace-99"})
+
+        record = _access_record(capsys.readouterr().err)
+        assert record["correlation_id"] == "trace-99"
+        assert record["http_method"] == "GET"
+        assert record["path"] == "/api/v1/health"
+        assert record["http_status"] == 200
+        assert isinstance(record["duration_ms"], float)
+
+    def test_client_errors_are_logged_at_warning(
+        self, settings: Settings, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        configure_logging(settings)
+        with TestClient(create_app(settings)) as client:
+            client.get("/api/v1/nope")
+
+        record = _access_record(capsys.readouterr().err)
+        assert record["level"] == "WARNING"
+        assert record["http_status"] == 404
+
+    def test_server_errors_are_logged_at_error(
+        self, settings: Settings, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        configure_logging(settings)
+        app = create_app(settings)
+
+        @app.get("/api/v1/_test/boom")
+        async def _boom() -> None:
+            raise RuntimeError("failure")
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            client.get("/api/v1/_test/boom")
+
+        record = _access_record(capsys.readouterr().err)
+        assert record["level"] == "ERROR"
+
+    def test_application_log_and_access_log_share_the_correlation_id(
+        self, settings: Settings, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """The point of the exercise: one request is followable across both records."""
+        configure_logging(settings)
+        app = create_app(settings)
+
+        @app.get("/api/v1/_test/logs")
+        async def _emit() -> dict[str, str]:
+            get_logger("taskcontrol.test").info("handler ran")
+            return {"ok": "yes"}
+
+        with TestClient(app) as client:
+            client.get("/api/v1/_test/logs", headers={CORRELATION_HEADER: "shared-id"})
+
+        records = [
+            json.loads(line)
+            for line in capsys.readouterr().err.splitlines()
+            if line.strip().startswith("{")
+        ]
+        by_message = {record["message"]: record for record in records}
+        assert by_message["handler ran"]["correlation_id"] == "shared-id"
+        assert by_message["HTTP request"]["correlation_id"] == "shared-id"
+
+
+def _access_record(stderr: str) -> dict[str, object]:
+    """Return the single access-log record found in captured stderr."""
+    records: list[dict[str, object]] = [
+        json.loads(line)
+        for line in stderr.splitlines()
+        if line.strip().startswith("{") and "http_status" in line
+    ]
+    assert len(records) == 1, f"expected exactly one access record, got {len(records)}"
+    return records[0]
+
+
+def test_uvicorn_colour_duplicates_never_reach_a_sink(
+    settings: Settings, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`color_message` carries ANSI escapes and must be stripped from structured output."""
+    configure_logging(settings)
+    get_logger("uvicorn.error").info(
+        "Started server process", extra={"color_message": "Started \x1b[36mprocess\x1b[0m"}
+    )
+
+    rendered = capsys.readouterr().err
+    assert "color_message" not in rendered
+    assert "\\u001b" not in rendered

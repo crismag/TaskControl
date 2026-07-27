@@ -12,6 +12,7 @@ from typing import Annotated
 import typer
 
 from taskcontrol import __version__
+from taskcontrol.infrastructure.server import run_api
 from taskcontrol.infrastructure.settings import Settings
 
 app = typer.Typer(
@@ -39,6 +40,39 @@ def version(
     else:
         typer.echo(__version__)
     _ = ctx
+
+
+@app.command()
+def server(
+    ctx: typer.Context,
+    host: Annotated[
+        str | None,
+        typer.Option("--host", help="Override the configured bind interface."),
+    ] = None,
+    port: Annotated[
+        int | None,
+        typer.Option("--port", help="Override the configured bind port."),
+    ] = None,
+    reload: Annotated[
+        bool, typer.Option("--reload", help="Restart on source change. Development only.")
+    ] = False,
+) -> None:
+    """Start the TaskControl API server.
+
+    Binds to TASKCONTROL_API_HOST and TASKCONTROL_API_PORT unless overridden, so the
+    address reported by `taskctl health` is the address actually served.
+    """
+    settings = _settings(ctx)
+    if host is not None or port is not None:
+        settings = settings.model_copy(
+            update={
+                "api_host": host if host is not None else settings.api_host,
+                "api_port": port if port is not None else settings.api_port,
+            }
+        )
+
+    typer.echo(f"TaskControl API on http://{settings.api_host}:{settings.api_port}")
+    run_api(settings, reload=reload)
 
 
 @app.command()
