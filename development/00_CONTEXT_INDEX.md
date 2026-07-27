@@ -14,11 +14,12 @@ TaskControl is a standalone, general-purpose application for defining, schedulin
 
 ## Current state of the repository
 
-**Waves 0–2 complete.** The project installs and passes its gate; the product vocabulary
-exists as typed, framework-free domain code; task definitions and revisions persist and
-survive a restart. Nothing is executed yet.
+**Waves 0–3 complete.** TaskControl runs real work, classifies the result honestly, records
+every attempt, and always finishes an execution in a terminal persisted state. Expectations
+are not evaluated yet, and scheduling is not automatic yet.
 
-The next action is Wave 3 (Runtime and executors) of `10_IMPLEMENTATION_BLUEPRINT.md`. High-level product and architecture documentation is frozen: changes at Level 0 or Level 1 now require an ADR and an explicit supersession analysis (ADR 0017).
+The next action is Wave 4 (Expectations and outcome evaluation) of
+`10_IMPLEMENTATION_BLUEPRINT.md`. High-level product and architecture documentation is frozen: changes at Level 0 or Level 1 now require an ADR and an explicit supersession analysis (ADR 0017).
 
 ## Documentation levels
 
@@ -115,7 +116,7 @@ Exactly one document answers each of these. No other document may restate the an
 | --- | --- |
 | `architecture/ARCHITECTURE_OVERVIEW.md` | Style, layers, runtime flow, topology, boundaries |
 | `domain/README.md` … `domain/09_*.md` | The domain handbook (11 files) |
-| `decisions/README.md`, `decisions/00NN_*.md` | ADRs 0001–0019 |
+| `decisions/README.md`, `decisions/00NN_*.md` | ADRs 0001–0021 |
 | `engineering/README.md` and subdirectories | Charter, laws, structure, dependency rules, standards, quality, governance, AI policy |
 
 ### Level 2 — Blueprint

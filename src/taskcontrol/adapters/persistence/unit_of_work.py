@@ -20,6 +20,7 @@ from typing import Literal, Self
 from sqlalchemy.orm import Session, sessionmaker
 
 from taskcontrol.adapters.persistence.repositories import (
+    SqlAlchemyExecutionRepository,
     SqlAlchemyTaskRepository,
     SqlAlchemyTaskRevisionRepository,
 )
@@ -48,6 +49,7 @@ class UnitOfWork:
         self._committed = False
         self.tasks = SqlAlchemyTaskRepository(self._session)
         self.revisions = SqlAlchemyTaskRevisionRepository(self._session)
+        self.executions = SqlAlchemyExecutionRepository(self._session)
         return self
 
     def __exit__(

@@ -20,18 +20,18 @@ It does not restate the directory tree (see `engineering/repository/10_REPOSITOR
 
 ## Current position
 
-**Repository state: Waves 0–2 complete. Task definitions and revisions are persisted and
-survive a restart, on SQLite by default and PostgreSQL by configuration. Nothing is
-executed yet.**
+**Repository state: Waves 0–3 complete. TaskControl runs real work, classifies the result
+honestly, records every attempt, and always finishes an execution in a terminal persisted
+state. Expectations are not yet evaluated, and scheduling is not yet automatic.**
 
-**Next action: Wave 3 — Runtime and executors.**
+**Next action: Wave 4 — Expectations and outcome evaluation.**
 
 | Wave | Name | Status |
 | --- | --- | --- |
 | 0 | Foundation and quality gates | **complete** (2026-07-26) |
 | 1 | Domain core | **complete** (2026-07-27) |
 | 2 | Persistence and migrations | **complete** (2026-07-27) |
-| 3 | Runtime and executors | not started |
+| 3 | Runtime and executors | **complete** (2026-07-27) |
 | 4 | Expectations and outcome evaluation | not started |
 | 5 | Scheduling, eligibility, and dependencies | not started |
 | 6 | Application services and audit | not started |
@@ -266,6 +266,41 @@ read back with a verifying digest by another; `/api/v1/ready` returns 503 with
 
 **Gate:** integration tests using real subprocesses, including a deliberate timeout and a deliberate SIGKILL.
 
+### Outcome
+
+Delivered as specified, with two ADRs raised during the wave.
+
+**ADR 0020 — reason codes distinguish termination causes.** A timeout, a cancellation, and
+an external kill are the same event at the operating-system level. The outcome enum is
+unchanged; the reason-code vocabulary now covers `TIMED_OUT`, `CANCELLED`, and `FAILED`, and
+the cause is recorded when termination is *requested* rather than inferred from the signal.
+
+**ADR 0021 — overlap locking is process-local until Wave 5.** See the Wave 5 requirement
+below.
+
+Two decisions worth carrying:
+
+1. **Secret references are refused, not resolved.** A revision needing a secret fails with
+   `INFRASTRUCTURE_FAILED` and an explanation, because the secrets adapter does not exist
+   yet and the alternatives — inventing a value or silently dropping the binding — are both
+   worse than refusing.
+2. **The environment is replaced, not inherited.** A task sees exactly what it resolved
+   plus a minimal base, so it cannot read whatever secrets happen to be in the TaskControl
+   process. Tested with a canary.
+
+**The expectations seam stays dormant.** `SUCCEEDED` means the process succeeded, and
+`OUTCOME_FAILED` is unreachable until Wave 4 supplies real evidence. Tests assert that
+rather than fabricating evidence to exercise the path.
+
+A real defect was found by the suite: the executor leaked subprocess pipes, which
+`filterwarnings = ["error"]` surfaced as a failure. A long-running TaskControl process
+would eventually exhaust its file descriptors.
+
+Verified: `make check` green; 693 tests, 90% coverage; success, non-zero exit, launch
+failure, timeout, SIGTERM-ignored-then-SIGKILL, and lock contention each produce the correct
+outcome and reason code against real subprocesses; retries persist separate attempts; no
+execution is left unfinished across every kind of ending.
+
 ---
 
 ## Wave 4 — Expectations and outcome evaluation
@@ -302,6 +337,18 @@ read back with a verifying digest by another; `/api/v1/ready` returns 503 with
 - Calendar-backed conditions with holidays, exclusions, and provenance.
 - Simple dependency eligibility: upstream succeeded, optional freshness window. Not a DAG engine.
 - `src/taskcontrol/ports/deployment.py` with a `local` implementation and contract tests, per ADR 0018.
+- **Durable overlap locking (required, not optional).** ADR 0021 defers it to this wave and
+  states that TaskControl may not claim overlap protection beyond one process until it
+  exists. It must deliver all six of:
+  1. a row-level claim durable across process restart;
+  2. an explicit owner identity per claim;
+  3. a lease with an expiry, so a dead owner does not block a task forever;
+  4. stale-lock recovery reconciling claims whose owner cannot be observed;
+  5. multi-**process** contention tests, not merely multi-thread ones;
+  6. documented behaviour when the lock store is unavailable — `CONDITION_ERROR` or
+     `INFRASTRUCTURE_FAILED`, never an assumed acquisition.
+  The `OverlapLock` port and its contract tests already exist; this wave adds an
+  implementation behind them and must pass the same tests unchanged.
 
 ### Acceptance
 
@@ -310,6 +357,9 @@ read back with a verifying digest by another; `/api/v1/ready` returns 503 with
 - `SKIPPED` and `BLOCKED` are produced in their correct cases per ADR 0016.
 - Restart within the misfire window catches up; outside it, records a misfire.
 - The internal scheduler and a manual trigger enter the same runtime path.
+- Overlap protection holds across two TaskControl processes sharing one database, proven by
+  a multi-process test. Until this passes, the process-local limitation of ADR 0021 stands
+  and must not be contradicted in documentation or the UI.
 
 **Gate:** parameterised schedule tests over DST and calendar boundaries; Journeys 2, 6, 7, and 8.
 

@@ -54,6 +54,8 @@ An ADR may refine a lower-level document but must not silently contradict approv
 - [0017 — Documentation Levels and Repository Canonicalization](0017_DOCUMENTATION_LEVELS_AND_CANONICALIZATION.md)
 - [0018 — Internal Scheduler Before Scheduler-Artefact Deployment](0018_INTERNAL_SCHEDULER_BEFORE_ARTEFACT_DEPLOYMENT.md)
 - [0019 — Composition Roots Live Inside the Installed Package](0019_COMPOSITION_ROOTS_INSIDE_THE_PACKAGE.md)
+- [0020 — Reason Codes Distinguish Termination Causes](0020_TERMINATION_CAUSE_REASON_CODES.md)
+- [0021 — Overlap Locking Is Process-Local Until Wave 5](0021_PROCESS_LOCAL_OVERLAP_LOCKING.md)
 
 ## When an ADR is required
 

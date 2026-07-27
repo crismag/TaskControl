@@ -10,18 +10,47 @@ domain, and an aware one never reaches the database.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-from taskcontrol.adapters.persistence.models import TaskRecord, TaskRevisionRecord
+from taskcontrol.adapters.persistence.models import (
+    ExecutionAttemptRecord,
+    ExecutionRecord,
+    TaskRecord,
+    TaskRevisionRecord,
+)
 from taskcontrol.common.errors import ValidationError
-from taskcontrol.domain.common.identifiers import OwnerId, TaskId, TaskRevisionId
+from taskcontrol.domain.common.identifiers import (
+    AttemptId,
+    ExecutionId,
+    OwnerId,
+    TaskId,
+    TaskRevisionId,
+)
+from taskcontrol.domain.common.tracing import CorrelationId, IdempotencyKey
 from taskcontrol.domain.common.values import (
     ContentDigest,
+    Duration,
     RevisionNumber,
     SchemaVersion,
     Slug,
     UtcTimestamp,
+)
+from taskcontrol.domain.execution.execution import (
+    Execution,
+    ExecutionAttempt,
+    TriggerSource,
+)
+from taskcontrol.domain.execution.results import (
+    ProcessResult,
+    TerminationCause,
+    TerminationMode,
+)
+from taskcontrol.domain.execution.vocabulary import (
+    ExecutionOutcome,
+    ExecutionState,
+    ReasonCode,
 )
 from taskcontrol.domain.tasks.actions import ActionSpecification
 from taskcontrol.domain.tasks.lifecycle import PublicationState, TaskLifecycleState
@@ -268,4 +297,194 @@ def record_to_revision(record: TaskRevisionRecord) -> TaskRevision:
         published_at=from_naive_utc(record.published_at),
         published_by=OwnerId(record.published_by) if record.published_by else None,
         content_digest=ContentDigest(record.content_digest) if record.content_digest else None,
+    )
+
+
+def execution_to_record(execution: Execution) -> ExecutionRecord:
+    """Build a storage record from an execution.
+
+    Args:
+        execution: The domain execution.
+
+    Returns:
+        The record.
+    """
+    return ExecutionRecord(
+        execution_id=execution.execution_id.to_primitive(),
+        task_id=execution.task_id.to_primitive(),
+        revision_id=execution.revision_id.to_primitive(),
+        trigger_source=str(execution.trigger_source),
+        state=str(execution.state),
+        outcome=str(execution.outcome) if execution.outcome else None,
+        reason_code=execution.reason_code.to_primitive() if execution.reason_code else None,
+        explanation=execution.explanation,
+        requested_at=to_naive_utc(execution.requested_at),
+        started_at=to_naive_utc(execution.started_at),
+        finished_at=to_naive_utc(execution.finished_at),
+        correlation_id=(
+            execution.correlation_id.to_primitive() if execution.correlation_id else None
+        ),
+        idempotency_key=(
+            execution.idempotency_key.to_primitive() if execution.idempotency_key else None
+        ),
+        requested_by=execution.requested_by.to_primitive() if execution.requested_by else None,
+        configuration_digest=(
+            execution.configuration_digest.to_primitive()
+            if execution.configuration_digest
+            else None
+        ),
+    )
+
+
+def apply_execution_to_record(record: ExecutionRecord, execution: Execution) -> None:
+    """Copy an execution's mutable state onto an existing record.
+
+    Identity, task, revision, and request metadata are not copied: they are fixed when the
+    execution is created, and rewriting them would let a bug rewrite history.
+
+    Args:
+        record: The record to update.
+        execution: The execution carrying the new state.
+    """
+    record.state = str(execution.state)
+    record.outcome = str(execution.outcome) if execution.outcome else None
+    record.reason_code = execution.reason_code.to_primitive() if execution.reason_code else None
+    record.explanation = execution.explanation
+    record.started_at = to_naive_utc(execution.started_at)
+    record.finished_at = to_naive_utc(execution.finished_at)
+    record.configuration_digest = (
+        execution.configuration_digest.to_primitive() if execution.configuration_digest else None
+    )
+
+
+def record_to_execution(
+    record: ExecutionRecord, attempts: Sequence[ExecutionAttemptRecord] = ()
+) -> Execution:
+    """Build a domain execution from storage records.
+
+    Args:
+        record: The execution record.
+        attempts: Its attempt records, in any order; they are sorted here.
+
+    Returns:
+        The execution.
+
+    Raises:
+        ValidationError: If the records are corrupt or violate a domain invariant.
+    """
+    return Execution(
+        execution_id=ExecutionId(record.execution_id),
+        task_id=TaskId(record.task_id),
+        revision_id=TaskRevisionId(record.revision_id),
+        trigger_source=TriggerSource(record.trigger_source),
+        requested_at=_require(from_naive_utc(record.requested_at), "requested_at"),
+        state=ExecutionState(record.state),
+        outcome=ExecutionOutcome(record.outcome) if record.outcome else None,
+        reason_code=ReasonCode(record.reason_code) if record.reason_code else None,
+        explanation=record.explanation,
+        attempts=tuple(
+            record_to_attempt(attempt)
+            for attempt in sorted(attempts, key=lambda item: item.attempt_number)
+        ),
+        started_at=from_naive_utc(record.started_at),
+        finished_at=from_naive_utc(record.finished_at),
+        correlation_id=CorrelationId(record.correlation_id) if record.correlation_id else None,
+        idempotency_key=(
+            IdempotencyKey(record.idempotency_key) if record.idempotency_key else None
+        ),
+        requested_by=OwnerId(record.requested_by) if record.requested_by else None,
+        configuration_digest=(
+            ContentDigest(record.configuration_digest) if record.configuration_digest else None
+        ),
+    )
+
+
+def attempt_to_record(attempt: ExecutionAttempt) -> ExecutionAttemptRecord:
+    """Build a storage record from an attempt.
+
+    Args:
+        attempt: The domain attempt.
+
+    Returns:
+        The record.
+    """
+    result = attempt.result
+    return ExecutionAttemptRecord(
+        attempt_id=attempt.attempt_id.to_primitive(),
+        execution_id=attempt.execution_id.to_primitive(),
+        attempt_number=attempt.attempt_number,
+        executor_type=attempt.executor_type,
+        started_at=to_naive_utc(attempt.started_at),
+        finished_at=to_naive_utc(attempt.finished_at),
+        duration_seconds=attempt.duration.to_primitive(),
+        termination=str(result.termination) if result else None,
+        termination_cause=str(result.termination_cause) if result else None,
+        exit_code=result.exit_code if result else None,
+        signal_number=result.signal_number if result else None,
+        launch_error=result.launch_error if result else None,
+        stdout=attempt.stdout,
+        stderr=attempt.stderr,
+        stdout_bytes=result.stdout_bytes if result else 0,
+        stderr_bytes=result.stderr_bytes if result else 0,
+        output_truncated=result.output_truncated if result else False,
+    )
+
+
+def apply_attempt_to_record(record: ExecutionAttemptRecord, attempt: ExecutionAttempt) -> None:
+    """Copy an attempt's finished state onto an existing record.
+
+    Args:
+        record: The record to update.
+        attempt: The attempt carrying its result.
+    """
+    result = attempt.result
+    record.finished_at = to_naive_utc(attempt.finished_at)
+    record.duration_seconds = attempt.duration.to_primitive()
+    record.termination = str(result.termination) if result else None
+    record.termination_cause = str(result.termination_cause) if result else None
+    record.exit_code = result.exit_code if result else None
+    record.signal_number = result.signal_number if result else None
+    record.launch_error = result.launch_error if result else None
+    record.stdout = attempt.stdout
+    record.stderr = attempt.stderr
+    record.stdout_bytes = result.stdout_bytes if result else 0
+    record.stderr_bytes = result.stderr_bytes if result else 0
+    record.output_truncated = result.output_truncated if result else False
+
+
+def record_to_attempt(record: ExecutionAttemptRecord) -> ExecutionAttempt:
+    """Build a domain attempt from a storage record.
+
+    Args:
+        record: The stored record.
+
+    Returns:
+        The attempt.
+    """
+    result: ProcessResult | None = None
+    if record.termination is not None:
+        result = ProcessResult(
+            termination=TerminationMode(record.termination),
+            duration=Duration(record.duration_seconds),
+            exit_code=record.exit_code,
+            signal_number=record.signal_number,
+            termination_cause=TerminationCause(
+                record.termination_cause or TerminationCause.NOT_TERMINATED
+            ),
+            stdout_bytes=record.stdout_bytes,
+            stderr_bytes=record.stderr_bytes,
+            output_truncated=record.output_truncated,
+            launch_error=record.launch_error,
+        )
+
+    return ExecutionAttempt(
+        attempt_id=AttemptId(record.attempt_id),
+        execution_id=ExecutionId(record.execution_id),
+        attempt_number=record.attempt_number,
+        started_at=_require(from_naive_utc(record.started_at), "started_at"),
+        executor_type=record.executor_type,
+        finished_at=from_naive_utc(record.finished_at),
+        result=result,
+        stdout=record.stdout,
+        stderr=record.stderr,
     )

@@ -13,12 +13,41 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from taskcontrol.domain.execution.results import ProcessResult, RetryPolicy, TerminationMode
+from taskcontrol.domain.execution.results import (
+    ProcessResult,
+    RetryPolicy,
+    TerminationCause,
+    TerminationMode,
+)
 from taskcontrol.domain.execution.vocabulary import (
     ExecutionOutcome,
     ReasonCode,
+    ReasonCodes,
     RetryEligibility,
 )
+
+_TERMINATION_CLASSIFICATION: dict[TerminationCause, tuple[ExecutionOutcome, ReasonCode]] = {
+    TerminationCause.RUN_TIMEOUT: (
+        ExecutionOutcome.TIMED_OUT,
+        ReasonCodes.TIMED_OUT_RUN_TIMEOUT_EXCEEDED,
+    ),
+    TerminationCause.CANCELLATION_REQUESTED: (
+        ExecutionOutcome.CANCELLED,
+        ReasonCodes.CANCELLED_REQUESTED_BY_USER,
+    ),
+    TerminationCause.SUPERSEDED: (
+        ExecutionOutcome.CANCELLED,
+        ReasonCodes.CANCELLED_SUPERSEDED,
+    ),
+    TerminationCause.EXTERNAL: (
+        ExecutionOutcome.FAILED,
+        ReasonCodes.FAILED_TERMINATED_EXTERNALLY,
+    ),
+}
+"""Termination cause to outcome and reason code (ADR 0020).
+
+The same signal produces three different meanings. Only the recorded cause separates them.
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,10 +104,16 @@ def classify_process_result(
 
     1. A process that never started is a ``LAUNCH_FAILED``, not a failure of the work.
     2. A process whose fate is unproven is ``UNKNOWN``. It is never guessed either way.
-    3. A timeout is a timeout, even though the process also died by signal.
+    3. A terminated process is classified by *why* it was terminated, not by the signal
+       that did it — a timeout, a cancellation, and an external kill are the same event at
+       the operating-system level and only the recorded cause tells them apart (ADR 0020).
     4. A technically failing exit is ``FAILED``.
     5. Only then, a technically successful process is checked against its expectations —
        and fails as ``OUTCOME_FAILED`` if any required one did not pass.
+
+    Expectations are dormant until Wave 4. Passing no evidence means a technically
+    successful process succeeds; ``OUTCOME_FAILED`` is unreachable until real evaluation
+    exists, and fabricating evidence to make it reachable would be a lie.
 
     Args:
         result: What the process did.
@@ -108,18 +143,26 @@ def classify_process_result(
             ),
         )
 
-    # Checked before the exit code: a timed-out process usually also reports a signal or a
-    # non-zero status, and reporting that instead of the timeout would hide the cause.
-    if result.timed_out:
+    # Checked before the exit code: a terminated process usually also reports a signal or a
+    # non-zero status, and reporting that instead of the cause would hide what happened.
+    if result.was_terminated:
+        outcome, reason_code = _TERMINATION_CLASSIFICATION[result.termination_cause]
         return Classification(
-            ExecutionOutcome.TIMED_OUT,
-            explanation=f"The process exceeded its timeout after {result.duration}.",
+            outcome,
+            reason_code=reason_code,
+            explanation=_termination_explanation(result),
         )
 
     if result.termination is TerminationMode.SIGNALLED:
+        # Signalled with no recorded cause: TaskControl did not ask, so something outside
+        # it did. Reported as an external termination rather than a bare failure.
         return Classification(
             ExecutionOutcome.FAILED,
-            explanation=f"The process was terminated by signal {result.signal_number}.",
+            reason_code=ReasonCodes.FAILED_TERMINATED_EXTERNALLY,
+            explanation=(
+                f"The process was terminated by signal {result.signal_number}, which "
+                "TaskControl did not send."
+            ),
         )
 
     if result.exit_code not in successful_codes:
@@ -156,6 +199,25 @@ def classify_process_result(
         if evidence.required_total
         else f"The process exited with status {result.exit_code}.",
     )
+
+
+def _termination_explanation(result: ProcessResult) -> str:
+    """Explain a termination in terms an operator can act on."""
+    signal_detail = f" (signal {result.signal_number})" if result.signal_number else ""
+    match result.termination_cause:
+        case TerminationCause.RUN_TIMEOUT:
+            return f"The process exceeded its timeout after {result.duration}{signal_detail}."
+        case TerminationCause.CANCELLATION_REQUESTED:
+            return f"The process was cancelled after {result.duration}{signal_detail}."
+        case TerminationCause.SUPERSEDED:
+            return f"The process was superseded by a newer run after {result.duration}."
+        case TerminationCause.EXTERNAL:
+            return (
+                f"The process was terminated by something outside TaskControl after "
+                f"{result.duration}{signal_detail}."
+            )
+        case TerminationCause.NOT_TERMINATED:  # pragma: no cover - guarded by the caller
+            return "The process was not terminated."
 
 
 @dataclass(frozen=True, slots=True)

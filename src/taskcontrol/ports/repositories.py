@@ -13,8 +13,10 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from taskcontrol.domain.common.identifiers import TaskId, TaskRevisionId
+from taskcontrol.domain.common.identifiers import ExecutionId, TaskId, TaskRevisionId
+from taskcontrol.domain.common.tracing import IdempotencyKey
 from taskcontrol.domain.common.values import RevisionNumber, Slug
+from taskcontrol.domain.execution.execution import Execution
 from taskcontrol.domain.tasks.lifecycle import TaskLifecycleState
 from taskcontrol.domain.tasks.revision import TaskRevision
 from taskcontrol.domain.tasks.task import Task
@@ -208,5 +210,89 @@ class TaskRevisionRepository(Protocol):
 
         Returns:
             The highest number, or ``None`` when the task has no revisions.
+        """
+        ...
+
+
+@runtime_checkable
+class ExecutionRepository(Protocol):
+    """Stores and retrieves executions and their attempts.
+
+    Executions are append-and-advance: created pending, updated as they progress, and
+    frozen once terminal. There is no delete — history is the product.
+    """
+
+    def add(self, execution: Execution) -> None:
+        """Store a new execution.
+
+        Args:
+            execution: The execution to store.
+
+        Raises:
+            ConflictError: If the identifier, or the task and idempotency key pair, already
+                exists. A duplicate trigger delivery must not produce a second execution.
+        """
+        ...
+
+    def get(self, execution_id: ExecutionId) -> Execution | None:
+        """Return an execution and its attempts.
+
+        Args:
+            execution_id: The identifier.
+
+        Returns:
+            The execution, or ``None`` when it does not exist.
+        """
+        ...
+
+    def find_by_idempotency_key(self, task_id: TaskId, key: IdempotencyKey) -> Execution | None:
+        """Return the execution a previous identical request created, if any.
+
+        Args:
+            task_id: The task.
+            key: The idempotency key supplied by the caller.
+
+        Returns:
+            The existing execution, or ``None`` when this request is new.
+        """
+        ...
+
+    def save(self, execution: Execution) -> None:
+        """Persist an execution's current state and its attempts.
+
+        Must be safe to call repeatedly as an execution progresses, and must persist a
+        terminal state even when called from a cleanup path after a failure.
+
+        Args:
+            execution: The execution to persist.
+
+        Raises:
+            NotFoundError: If the execution does not exist.
+        """
+        ...
+
+    def list_for_task(
+        self, task_id: TaskId, *, limit: int = 50, offset: int = 0
+    ) -> tuple[Execution, ...]:
+        """Return a task's executions, newest first.
+
+        Args:
+            task_id: The task.
+            limit: Maximum number to return.
+            offset: How many to skip.
+
+        Returns:
+            The executions.
+        """
+        ...
+
+    def list_unfinished(self) -> tuple[Execution, ...]:
+        """Return every execution that has not reached a terminal state.
+
+        Restart recovery reads this: an execution left in flight by a process that died
+        must be reconciled to an honest terminal state rather than left running forever.
+
+        Returns:
+            The unfinished executions.
         """
         ...

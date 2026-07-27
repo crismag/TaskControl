@@ -22,6 +22,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -129,4 +130,101 @@ class TaskRevisionRecord(Base):
         CheckConstraint("revision_number >= 1", name="ck_revisions_number_positive"),
         Index("ix_revisions_task_id", "task_id"),
         Index("ix_revisions_publication_state", "publication_state"),
+    )
+
+
+class ExecutionRecord(Base):
+    """How an execution is stored.
+
+    Rows exist for executions that never ran a process. A skipped or blocked execution is
+    a first-class record with an outcome and a reason code — that is the point.
+
+    ``outcome`` is nullable because an in-flight execution has none. A ``finished`` row with
+    a null outcome would be an execution nobody can explain, so a constraint forbids it.
+    """
+
+    __tablename__ = "executions"
+
+    execution_id: Mapped[str] = mapped_column(String(TASK_ID_LENGTH), primary_key=True)
+    task_id: Mapped[str] = mapped_column(
+        String(TASK_ID_LENGTH),
+        ForeignKey("tasks.task_id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    revision_id: Mapped[str] = mapped_column(
+        String(TASK_ID_LENGTH),
+        ForeignKey("task_revisions.revision_id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    trigger_source: Mapped[str] = mapped_column(String(32), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    outcome: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    reason_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+
+    correlation_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    requested_by: Mapped[str | None] = mapped_column(String(TASK_ID_LENGTH), nullable=True)
+    configuration_digest: Mapped[str | None] = mapped_column(String(DIGEST_LENGTH), nullable=True)
+
+    __table_args__ = (
+        # An execution recorded as finished with no outcome is one nobody can explain.
+        CheckConstraint(
+            "state != 'finished' OR outcome IS NOT NULL",
+            name="ck_executions_finished_requires_outcome",
+        ),
+        # A duplicate trigger delivery must not produce a duplicate execution.
+        UniqueConstraint("task_id", "idempotency_key", name="uq_executions_idempotency"),
+        Index("ix_executions_task_id", "task_id"),
+        Index("ix_executions_state", "state"),
+        Index("ix_executions_outcome", "outcome"),
+        # History is read newest-first per task, which is the only listing the API offers.
+        Index("ix_executions_task_requested", "task_id", "requested_at"),
+    )
+
+
+class ExecutionAttemptRecord(Base):
+    """How one attempt within an execution is stored.
+
+    stdout and stderr are separate columns and stay separate. Interleaving them would lose
+    the distinction between a program's result and its diagnostics.
+    """
+
+    __tablename__ = "execution_attempts"
+
+    attempt_id: Mapped[str] = mapped_column(String(TASK_ID_LENGTH), primary_key=True)
+    execution_id: Mapped[str] = mapped_column(
+        String(TASK_ID_LENGTH),
+        # CASCADE here, unlike elsewhere: an attempt has no meaning without its execution,
+        # and executions are never deleted while a task references them.
+        ForeignKey("executions.execution_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    executor_type: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    termination: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    termination_cause: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    exit_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    signal_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    launch_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    stdout: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    stderr: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    stdout_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    stderr_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    output_truncated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    __table_args__ = (
+        UniqueConstraint("execution_id", "attempt_number", name="uq_attempts_execution_number"),
+        CheckConstraint("attempt_number >= 1", name="ck_attempts_number_positive"),
+        Index("ix_attempts_execution_id", "execution_id"),
     )
