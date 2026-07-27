@@ -114,7 +114,7 @@ class TestUnreachableDatabase:
     def test_the_operator_sees_a_sentence_not_a_traceback(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        monkeypatch.setenv("TC_DATABASE_URL", "sqlite+pysqlite:////nonexistent/tc.db")
+        monkeypatch.setenv("TASKCONTROL_DATABASE_URL", "sqlite+pysqlite:////nonexistent/tc.db")
         monkeypatch.setattr("sys.argv", ["taskctl", "run", "nightly-backup"])
 
         exit_code = main()
@@ -131,7 +131,7 @@ class TestUnreachableDatabase:
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
         """The half that already worked, and must keep working: cron must see a failure."""
-        monkeypatch.setenv("TC_DATABASE_URL", "sqlite+pysqlite:////nonexistent/tc.db")
+        monkeypatch.setenv("TASKCONTROL_DATABASE_URL", "sqlite+pysqlite:////nonexistent/tc.db")
         monkeypatch.setattr("sys.argv", ["taskctl", "run", "nightly-backup"])
 
         assert main() == EXIT_ERROR

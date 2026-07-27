@@ -92,6 +92,42 @@ class Settings(BaseSettings):
     api_host: str = Field(default="127.0.0.1", description="Interface the API binds to.")
     api_port: int = Field(default=8000, ge=1, le=65535, description="Port the API binds to.")
 
+    # Cron layout. Every path is configurable because distributions disagree about them,
+    # and a wrong path must be a setting an operator can correct rather than a constant
+    # they have to patch (ADR 0026).
+    cron_command: str = Field(
+        default="crontab",
+        description="The crontab executable. The only supported way to change a user crontab.",
+    )
+    cron_user: str = Field(
+        default="",
+        description=(
+            "Whose user crontab to manage. Empty means the invoking user's own, which "
+            "needs no privilege. Naming another user does."
+        ),
+    )
+    cron_system_crontab: Path = Field(
+        default=Path("/etc/crontab"), description="The system crontab file."
+    )
+    cron_d_dir: Path = Field(
+        default=Path("/etc/cron.d"), description="Directory for one-file-per-task cron entries."
+    )
+    run_parts_root: Path = Field(
+        default=Path("/etc"),
+        description=(
+            "Directory containing the run-parts directories — cron.hourly, cron.daily, "
+            "and their siblings."
+        ),
+    )
+    taskctl_command: str = Field(
+        default="taskctl",
+        description=(
+            "How a deployed cron artefact invokes TaskControl. Must be resolvable from "
+            "cron's environment, which is far smaller than a login shell's — an absolute "
+            "path is usually the right answer on a real host."
+        ),
+    )
+
     @field_validator("log_level", mode="before")
     @classmethod
     def _normalise_log_level(cls, value: object) -> object:

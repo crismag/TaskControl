@@ -13,7 +13,7 @@ import typer
 
 from taskcontrol import __version__
 from taskcontrol.application.runtime import RunRequest
-from taskcontrol.cli.wiring import build_runtime
+from taskcontrol.cli.wiring import build_deployment_service, build_runtime
 from taskcontrol.domain.common.tracing import IdempotencyKey
 from taskcontrol.domain.execution.execution import Execution, TriggerSource
 from taskcontrol.infrastructure.database import (
@@ -24,6 +24,7 @@ from taskcontrol.infrastructure.database import (
 from taskcontrol.infrastructure.migrations import current_revision, upgrade_to_head
 from taskcontrol.infrastructure.server import run_api
 from taskcontrol.infrastructure.settings import Settings
+from taskcontrol.ports.scheduler_management import DeploymentChange, DeploymentPlan
 
 app = typer.Typer(
     name="taskctl",
@@ -210,3 +211,210 @@ def health(
     width = max(len(key) for key in payload)
     for key, value in payload.items():
         typer.echo(f"{key.ljust(width)}  {value}")
+
+
+schedule_app = typer.Typer(
+    help="Manage the cron artefacts that activate recurring work.",
+    no_args_is_help=True,
+)
+app.add_typer(schedule_app, name="schedule")
+
+
+@schedule_app.command("plan")
+def schedule_plan(
+    ctx: typer.Context,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit machine-readable output.")] = False,
+) -> None:
+    """Show what deploying would change, without changing anything.
+
+    Read this before running ``schedule apply``. A tool that rewrites the crontab of a
+    production host without showing its work will not be trusted with the crontab of a
+    production host.
+
+    Exits 0 whether or not there is anything to do; a plan is information, not a verdict.
+    """
+    settings = _settings(ctx)
+    plan = build_deployment_service(settings).plan()
+
+    if as_json:
+        typer.echo(json.dumps(_plan_payload(plan)))
+        return
+
+    _print_plan(plan)
+
+
+@schedule_app.command("apply")
+def schedule_apply(
+    ctx: typer.Context,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit machine-readable output.")] = False,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip the confirmation prompt. Required for automation."),
+    ] = False,
+) -> None:
+    """Deploy the current estate to this host's cron, verifying every write.
+
+    Each artefact is written and then read back and compared. On any failure the host is
+    restored to its previous state — a partially applied deployment is the one outcome an
+    operator cannot reason about.
+
+    Exits 0 when everything applied, 1 when anything failed.
+    """
+    settings = _settings(ctx)
+    service = build_deployment_service(settings)
+    plan = service.plan()
+
+    if plan.is_empty:
+        typer.echo("Nothing to do; this host already matches what is published.")
+        raise typer.Exit(code=0)
+
+    if not as_json and not yes:
+        _print_plan(plan)
+        typer.confirm("\nApply these changes?", abort=True)
+
+    result = service.apply(plan)
+
+    if as_json:
+        typer.echo(
+            json.dumps(
+                {
+                    "applied": [entry.slug for entry in result.applied],
+                    "rolled_back": result.rolled_back,
+                    "failure": result.failure,
+                }
+            )
+        )
+    elif result.succeeded:
+        typer.echo(f"Applied {len(result.applied)} change(s) and verified each one.")
+    else:
+        typer.echo(result.failure, err=True)
+
+    raise typer.Exit(code=0 if result.succeeded else 1)
+
+
+@schedule_app.command("verify")
+def schedule_verify(
+    ctx: typer.Context,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit machine-readable output.")] = False,
+) -> None:
+    """Report how this host differs from what TaskControl published.
+
+    This is how hand-edited crontabs are found. It only reads.
+
+    Exits 0 when the host matches, 1 when it has drifted — so it can be run from
+    monitoring.
+    """
+    settings = _settings(ctx)
+    report = build_deployment_service(settings).verify()
+
+    if as_json:
+        typer.echo(
+            json.dumps(
+                {
+                    "matches": report.matches,
+                    "artefacts_checked": report.artefacts_checked,
+                    "findings": [
+                        {
+                            "kind": str(finding.kind),
+                            "where": finding.target_description,
+                            "detail": finding.detail,
+                        }
+                        for finding in report.findings
+                    ],
+                }
+            )
+        )
+    elif report.matches:
+        typer.echo(f"All {report.artefacts_checked} deployed artefact(s) match what was published.")
+    else:
+        typer.echo(f"Checked {report.artefacts_checked} artefact(s); found drift:\n")
+        for finding in report.findings:
+            typer.echo(f"  {str(finding.kind).upper():<10} {finding.target_description}")
+            if finding.detail:
+                typer.echo(f"             {finding.detail}")
+
+    raise typer.Exit(code=0 if report.matches else 1)
+
+
+@schedule_app.command("status")
+def schedule_status(
+    ctx: typer.Context,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit machine-readable output.")] = False,
+) -> None:
+    """Report what TaskControl can deploy on this host, and where.
+
+    Capability is reported rather than assumed: whether this process can write
+    ``/etc/cron.d`` is a fact about the host, and finding out halfway through an apply is
+    the wrong time.
+    """
+    settings = _settings(ctx)
+    service = build_deployment_service(settings)
+    artefacts = service.desired_artefacts()
+
+    if as_json:
+        typer.echo(
+            json.dumps(
+                {
+                    "deployable": [
+                        {
+                            "slug": artefact.slug,
+                            "strategy": str(artefact.deployment.strategy),
+                            "target": str(artefact.deployment.target),
+                            "schedule": artefact.schedule,
+                        }
+                        for artefact in artefacts
+                    ]
+                }
+            )
+        )
+        return
+
+    if not artefacts:
+        typer.echo("No active capability has a published revision to deploy.")
+        return
+
+    width = max(len(artefact.slug) for artefact in artefacts)
+    for artefact in artefacts:
+        where = f"{artefact.deployment.strategy} -> {artefact.deployment.target}"
+        when = artefact.schedule or f"{artefact.deployment.classification} (by classification)"
+        typer.echo(f"{artefact.slug.ljust(width)}  {when:<24}  {where}")
+
+
+def _plan_payload(plan: DeploymentPlan) -> dict[str, object]:
+    """Render a plan as machine-readable data."""
+    return {
+        "changes": [
+            {
+                "slug": entry.slug,
+                "change": str(entry.change),
+                "where": entry.target_description,
+                "detail": entry.detail,
+            }
+            for entry in plan.entries
+        ],
+        "is_empty": plan.is_empty,
+    }
+
+
+def _print_plan(plan: DeploymentPlan) -> None:
+    """Render a plan for a human.
+
+    Unchanged entries are summarised rather than listed. "These forty are already correct"
+    is what makes a plan trustworthy; forty lines saying so is what makes it unread.
+    """
+    changing = plan.entries_changing()
+    unchanged = plan.count_of(DeploymentChange.UNCHANGED)
+
+    if not changing:
+        typer.echo(f"Nothing to do. {unchanged} artefact(s) already match what is published.")
+        return
+
+    typer.echo(f"{len(changing)} change(s) to apply:\n")
+    for entry in changing:
+        typer.echo(f"  {str(entry.change).upper():<10} {entry.slug}")
+        typer.echo(f"             {entry.target_description}")
+        if entry.detail:
+            typer.echo(f"             {entry.detail}")
+
+    if unchanged:
+        typer.echo(f"\n{unchanged} artefact(s) already correct and will not be touched.")
