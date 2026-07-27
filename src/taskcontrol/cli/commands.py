@@ -13,8 +13,14 @@ import typer
 
 from taskcontrol import __version__
 from taskcontrol.application.runtime import RunRequest
-from taskcontrol.cli.wiring import build_deployment_service, build_runtime
+from taskcontrol.cli.wiring import (
+    build_activation_service,
+    build_deployment_service,
+    build_reconciliation_service,
+    build_runtime,
+)
 from taskcontrol.domain.common.tracing import IdempotencyKey
+from taskcontrol.domain.common.values import Slug
 from taskcontrol.domain.execution.execution import Execution, TriggerSource
 from taskcontrol.infrastructure.database import (
     create_database_engine,
@@ -418,3 +424,91 @@ def _print_plan(plan: DeploymentPlan) -> None:
 
     if unchanged:
         typer.echo(f"\n{unchanged} artefact(s) already correct and will not be touched.")
+
+
+@app.command()
+def activate(
+    ctx: typer.Context,
+    task: Annotated[str, typer.Argument(help="Slug of the capability to activate.")],
+    as_json: Annotated[bool, typer.Option("--json", help="Emit machine-readable output.")] = False,
+) -> None:
+    """Run a capability from its locally installed revision. Invoked by cron.
+
+    Unlike ``run``, this needs nothing from the control plane to decide what to do. It
+    reads the installed manifest, and only then tries to reach the database — to *record*,
+    never to *decide*. If it cannot, the capability's activation policy governs what
+    happens next.
+
+    Exit codes are distinct on purpose, because they call for different responses:
+
+    * ``0`` — the work ran and succeeded.
+    * ``1`` — the work ran and did not succeed.
+    * ``75`` — TaskControl declined to run, because it could not record the run.
+    * ``70`` — the work ran and TaskControl could not record that it ran. Investigate.
+    """
+    settings = _settings(ctx)
+    result = build_activation_service(settings).activate(
+        Slug(task), trigger_source=TriggerSource.SCHEDULE
+    )
+
+    if as_json:
+        typer.echo(
+            json.dumps(
+                {
+                    "outcome": str(result.outcome) if result.outcome else None,
+                    "degraded": result.degraded,
+                    "journalled": result.journalled,
+                    "explanation": result.explanation,
+                    "exit_code": result.exit_code,
+                }
+            )
+        )
+    elif result.explanation:
+        typer.echo(result.explanation, err=result.exit_code != 0)
+
+    raise typer.Exit(code=result.exit_code)
+
+
+@app.command()
+def reconcile(
+    ctx: typer.Context,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit machine-readable output.")] = False,
+) -> None:
+    """Ingest locally journalled activations into the control plane.
+
+    Safe to run repeatedly and safe to run on a schedule: ingestion keys on the execution
+    identity the wrapper allocated before the work ran, so replaying a journal produces
+    one record per run rather than one per attempt to reconcile.
+
+    Exits 1 if the control plane is still unreachable, leaving the journal untouched.
+    """
+    settings = _settings(ctx)
+    report = build_reconciliation_service(settings).reconcile()
+
+    if as_json:
+        typer.echo(
+            json.dumps(
+                {
+                    "ingested": report.ingested,
+                    "already_known": report.already_known,
+                    "unreadable": report.unreadable,
+                    "cleared": report.cleared,
+                }
+            )
+        )
+        return
+
+    if not report.total_seen and not report.unreadable:
+        typer.echo("Nothing to reconcile; no activations were journalled locally.")
+        return
+
+    typer.echo(
+        f"Recorded {report.ingested} journalled activation(s); "
+        f"{report.already_known} were already known."
+    )
+    if report.unreadable:
+        typer.echo(
+            f"{report.unreadable} journal line(s) could not be read and were lost. "
+            "They were most likely truncated by a power failure.",
+            err=True,
+        )

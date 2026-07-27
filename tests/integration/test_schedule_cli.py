@@ -155,7 +155,9 @@ class TestApply:
         runner.invoke(app, ["schedule", "apply", "--yes"])
 
         content = (seeded / "cron.d" / "settlement-report").read_text(encoding="utf-8")
-        assert "30 17 * * 1-5 settlement /usr/local/bin/taskctl run settlement-report" in content
+        assert (
+            "30 17 * * 1-5 settlement /usr/local/bin/taskctl activate settlement-report" in content
+        )
 
     def test_reapplying_does_nothing(self, seeded: Path) -> None:
         runner.invoke(app, ["schedule", "apply", "--yes"])

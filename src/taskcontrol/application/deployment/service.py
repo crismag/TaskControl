@@ -15,14 +15,18 @@ and go back to editing crontabs by hand.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from typing import Any
 
+from taskcontrol.domain.common.values import Slug
+from taskcontrol.domain.deployment.manifest import InstalledRevision
 from taskcontrol.domain.tasks.lifecycle import TaskLifecycleState
 from taskcontrol.domain.tasks.revision import TaskRevision
 from taskcontrol.domain.tasks.task import Task
+from taskcontrol.ports.local_state import InstalledRevisionWriter
 from taskcontrol.ports.scheduler_management import (
     ApplyResult,
+    DeploymentChange,
     DeploymentPlan,
     DesiredArtefact,
     SchedulerManagement,
@@ -44,6 +48,10 @@ class DeploymentService:
         command_builder: Turns a capability into the command line cron will run. Injected
             because how TaskControl is invoked is a property of the installation — the
             path to ``taskctl`` on a real host is rarely just ``taskctl``.
+        installed: Where local revision manifests are written. Installed as part of the
+            same apply as the artefact, because the artefact and the definition it
+            executes must arrive and change together — that is what makes the wrapper's
+            "execute installed revision R" a true statement rather than a hope.
     """
 
     def __init__(
@@ -52,11 +60,13 @@ class DeploymentService:
         unit_of_work_factory: Callable[[], Any],
         scheduler: SchedulerManagement,
         command_builder: Callable[[Task], str],
+        installed: InstalledRevisionWriter,
     ) -> None:
         """Store the collaborators."""
         self._unit_of_work_factory = unit_of_work_factory
         self._scheduler = scheduler
         self._command_builder = command_builder
+        self._installed = installed
 
     def desired_artefacts(self) -> tuple[DesiredArtefact, ...]:
         """Return every artefact that should exist on this host.
@@ -154,7 +164,14 @@ class DeploymentService:
         return self._scheduler.plan(self.desired_artefacts())
 
     def apply(self, plan: DeploymentPlan | None = None) -> ApplyResult:
-        """Deploy the current estate.
+        """Deploy the current estate, installing each capability's revision alongside it.
+
+        Manifests are installed **before** the artefacts. Cron can fire the moment an
+        artefact appears, and a wrapper that woke to find no installed revision would
+        refuse to run — so the definition goes down first, and an artefact never points at
+        something that is not there yet.
+
+        The reverse is harmless: a manifest with no artefact is inert.
 
         Args:
             plan: A plan to apply. Computed fresh when omitted — but an operator who has
@@ -163,7 +180,44 @@ class DeploymentService:
         Returns:
             What was applied, and whether a rollback occurred.
         """
-        return self._scheduler.apply(plan if plan is not None else self.plan())
+        plan = plan if plan is not None else self.plan()
+        self._install_manifests()
+        result = self._scheduler.apply(plan)
+        if result.succeeded:
+            self._uninstall_removed(plan)
+        return result
+
+    def _install_manifests(self) -> None:
+        """Install a local manifest for every deployable capability."""
+        with self._unit_of_work_factory() as uow:
+            for task, revision in self._published_pairs(uow):
+                self._installed.install(InstalledRevision.install(task, revision))
+
+    def _uninstall_removed(self, plan: DeploymentPlan) -> None:
+        """Remove manifests for capabilities whose artefacts were removed.
+
+        Only after a successful apply. Removing a manifest while its artefact is still
+        deployed would leave cron firing a wrapper with nothing to execute.
+        """
+        for entry in plan.entries:
+            if entry.change is DeploymentChange.REMOVE:
+                self._installed.remove(Slug(entry.slug))
+
+    def _published_pairs(self, uow: Any) -> Iterator[tuple[Task, TaskRevision]]:
+        """Yield every active capability with its published revision."""
+        active = frozenset({TaskLifecycleState.ACTIVE})
+        offset = 0
+        while True:
+            page = uow.tasks.list_tasks(lifecycle_states=active, limit=_PAGE_SIZE, offset=offset)
+            if not page:
+                return
+            for task in page:
+                if task.active_revision_id is None:
+                    continue
+                revision = uow.revisions.get(task.active_revision_id)
+                if revision is not None:
+                    yield task, revision
+            offset += len(page)
 
     def verify(self) -> VerificationReport:
         """Read the host and report how it differs from what was published.
