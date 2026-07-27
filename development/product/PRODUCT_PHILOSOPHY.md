@@ -2,26 +2,28 @@
 
 - Document level: **0 — Identity**
 - Governed by: `PRODUCT_VISION.md`, `PRODUCT_SCOPE.md`
-- Related: ADR 0016 (outcomes), ADR 0018 (execution before generation)
+- Related: ADR 0016 (outcomes), ADR 0022 (cron owns activation)
 
 ## Purpose
 
 TaskControl exists to turn operational intent into reliable, observable, governable automated work.
 
-The product must not be designed as a graphical editor for cron syntax. Cron is one possible execution target among several, and in Phase 1 it is not a target at all. The user should describe what must happen, when it should happen, where it should run, under what conditions it is allowed to run, and what outcome proves success. TaskControl is responsible for turning that intent into execution and operational control.
+The product must not be designed as a graphical editor for cron syntax. Cron is the
+dependable substrate underneath, not the interface on top: a user should never need to write
+a cron expression for ordinary authoring, and should never be prevented from reading or
+overriding the artefact TaskControl generates. The user should describe what must happen, when it should happen, where it should run, under what conditions it is allowed to run, and what outcome proves success. TaskControl is responsible for turning that intent into execution and operational control.
 
 > The user defines intent. TaskControl resolves it into safe, observable execution.
 
 This sentence is the primary product rule. Every feature, API, screen, schema, adapter, and workflow should be evaluated against it.
 
-## Two delivery modes, in order
+## How intent becomes activation
 
-TaskControl resolves intent into execution in two ways. ADR 0018 fixes their order.
+TaskControl renders a task's schedule into a **managed artefact for an external scheduler**, and that scheduler activates the work. Cron is the first and primary target (ADR 0022); systemd timers and platform schedulers follow as further adapters.
 
-1. **TaskControl executes** (Phase 1). The internal scheduler evaluates eligibility and the TaskControl runtime runs the work directly. This is the default and it is what makes the product standalone.
-2. **TaskControl generates** (Phase 2). Scheduler adapters compile a task revision into native artefacts — a cron entry, a systemd timer — which a host scheduler executes, calling back into the same runtime.
+TaskControl does not activate recurring work itself. It never runs a timer, a polling loop, or an always-on scheduler process. A generated artefact invokes a short-lived TaskControl wrapper, which applies the execution services — locking, timeout, capture, classification — and exits.
 
-The second mode is an additional delivery channel for an already-proven task, never a separate product. Both modes share one domain model, one runtime, and one outcome vocabulary.
+Run-now exists for administration and validation. It is not the scheduled-job workflow.
 
 ## What users should think about
 
@@ -58,7 +60,8 @@ The domain model must remain independent from any one scheduler or operating sys
 
 The simplest useful experience should be possible without understanding enterprise architecture.
 
-A personal user should be able to create a task, select a schedule, test it locally, install it, and view execution history. The same task may later gain reusable profiles, calendars, run conditions, multiple targets, approvals, monitoring expectations, enterprise ownership, and delegated administration.
+A personal user should be able to create a task, select a schedule, test it, install the
+managed cron entry, and view execution history — without opening a crontab. The same task may later gain reusable profiles, calendars, run conditions, multiple targets, approvals, monitoring expectations, enterprise ownership, and delegated administration.
 
 Complexity should appear only when the user's operating context requires it.
 
@@ -70,7 +73,8 @@ These distinctions must survive into the domain model, API, UI, logs, metrics, a
 
 ## Generated artefacts are inspectable
 
-This section governs Phase 2 generation and the Phase 1 artefacts that precede it — resolved configuration snapshots, validation output, and execution records.
+Managed cron artefacts, resolved configuration snapshots, validation output, and execution
+records are all covered by this rule.
 
 Generated content should be deterministic where practical, versioned, diffable, validated before deployment, attributable to a task revision, reproducible from stored intent, and safe to preview without applying changes.
 

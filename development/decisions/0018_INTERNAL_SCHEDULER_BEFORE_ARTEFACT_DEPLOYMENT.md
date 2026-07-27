@@ -2,12 +2,21 @@
 
 - Document level: **1 — Architecture**
 - Lifecycle state: Canonical
-- Status: Accepted
+- Status: **Superseded** — retained for decision history; do not implement from it
 - Date: 2026-07-26
 - Owners: TaskControl maintainers
 - Supersedes: Wave ordering in `development/archive/05_DELIVERY_ROADMAP.md`; first-release scope in `development/archive/06_FULL_APPLICATION_BLUEPRINT.md`
-- Superseded by: None
+- Superseded by: **ADR 0022 (Cron Owns Recurring Activation)**
 - Related documents: `development/product/PRODUCT_SCOPE.md`, `development/product/PRODUCT_ROADMAP.md`, `development/domain/05_TARGETS_INVENTORY_DEPLOYMENTS_AND_DRIFT.md`, ADR 0007, ADR 0010
+
+> **Superseded by ADR 0022 on 2026-07-27.** This decision put an internal scheduler in
+> Phase 1 and deferred cron-artefact generation to Phase 2. The reasoning below — prove
+> execution semantics before compiling them into a target TaskControl does not own — remains
+> sound as *engineering sequencing*, but it was applied to a question it could not settle:
+> whether TaskControl is a scheduler or manages one. Cron now owns recurring activation.
+>
+> Wave 3 was built under this decision and is retained. Nothing here is rewritten to pretend
+> otherwise; read ADR 0022 for the current direction and the reasons for the change.
 
 ## Context
 

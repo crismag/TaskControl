@@ -1,12 +1,24 @@
 # TaskControl Product Realignment Context
 
-- Status: **Proposed direction — not yet canonical**
+> **STATUS: HISTORICAL — provenance only.** This package proposed the cron-backed
+> correction. It has been **accepted and reconciled** into the canonical documentation on
+> 2026-07-27 by realignment wave R0.
+>
+> The direction now lives in `../product/`, `../architecture/`, ADRs 0022–0024, and
+> `../10_IMPLEMENTATION_BLUEPRINT.md`. **Do not implement from this package** — read it to
+> understand *why* the direction changed, then follow the canonical documents.
+>
+> Excluded from agent context loading, like `../archive/`.
+
+- Status: **Accepted and reconciled** (was: proposed)
 - Created after: Wave 3 completion
-- Purpose: explain the proposed product correction before implementation continues
+- Reconciled by: R0, 2026-07-27
+- Purpose: record why the product correction was made, and what it replaced
 
 This package captures a proposed realignment of TaskControl. It does not silently override the current Level 0 and Level 1 documentation. The current canonical documents describe an internal scheduler and runtime. The proposed direction instead makes TaskControl a **cron-backed operational task management and asynchronous orchestration platform**.
 
-Implementation must remain paused after Wave 3 until the governing product, architecture, ADR, blueprint, and audit documents are reconciled through one explicit product-realignment pull request.
+**That reconciliation is complete.** The implementation freeze has been lifted; the
+blueprint identifies R1 as the next wave.
 
 ## Core correction
 
@@ -48,6 +60,12 @@ Wave 3 remains useful as an internal execution capability. It must no longer def
 - The queue is not a replacement for Kafka, RabbitMQ, Celery, Temporal, or another high-throughput broker.
 - The product must not become a LangGraph reproduction or a generic workflow engine without a clear operational-task use case.
 
-## Required governance action
+## Governance action — completed
 
-The first realignment PR must explicitly supersede or revise the current internal-scheduler assumptions, including the current README, product scope, product roadmap, architecture overview, implementation blueprint, deferred-capability register, documentation audit, context index, and ADR 0018 or its replacement.
+R0 superseded the internal-scheduler assumptions across the README, product package,
+architecture overview, domain terminology, implementation blueprint, deferred-capability
+register, documentation audit, context index, and open questions. ADR 0018 and ADR 0021 were
+marked superseded with their reasoning intact, and ADRs 0022, 0023, and 0024 record the new
+decisions.
+
+See `../DOCUMENTATION_AUDIT.md` for the file-by-file result.

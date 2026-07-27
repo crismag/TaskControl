@@ -6,7 +6,7 @@
 - Document level: **0 — Identity (future scope)**
 - Lifecycle state: Future
 - Governed by: `../product/PRODUCT_SCOPE.md`, `../product/PRODUCT_ROADMAP.md`
-- Origin: consolidated during the 2026-07-26 canonicalization from documents now in `../archive/`
+- Origin: consolidated during the 2026-07-26 canonicalization; revised 2026-07-27 after the cron-backed realignment (ADR 0022) promoted several entries into Phase 1
 
 ## Purpose
 
@@ -16,9 +16,13 @@ A capability listed here is **wanted**. It is not deferred because it is a bad i
 
 ## Phase 2 — Operational maturity
 
-### Scheduler-artefact generation and deployment
+### ~~Scheduler-artefact generation and deployment~~ — PROMOTED TO PHASE 1
 
-The original product thesis, deferred by ADR 0018 and retained in full.
+**No longer deferred.** ADR 0022 makes cron the activation mechanism, so managed cron
+artefact rendering, plan/apply/verify, drift detection, and crontab import are **Phase 1
+scope**, delivered in blueprint waves R2 and R4.
+
+The description below is retained for provenance. Read it as current scope.
 
 - Managed cron entry and managed-include rendering; systemd timer units.
 - Deployment plan preview showing additions, changes, removals, and unchanged artefacts.
@@ -32,7 +36,7 @@ The original product thesis, deferred by ADR 0018 and retained in full.
 
 *Origin: `archive/05_DELIVERY_ROADMAP.md` Wave 4; `archive/02_ARCHITECTURE.md`; `archive/06_FULL_APPLICATION_BLUEPRINT.md`; ADR 0010. Architecture remains binding; only implementation is deferred.*
 
-### Crontab import and adoption
+### ~~Crontab import and adoption~~ — PROMOTED TO PHASE 1 (blueprint R4)
 
 - Parse existing crontabs; identify commands, schedules, users, environment declarations.
 - Create draft task definitions; flag ambiguous or unsupported constructs.
@@ -74,17 +78,18 @@ Managed execution identities on one host; privilege-aware deployment; private an
 
 *Origin: `archive/01_SCOPE_AND_OPERATING_LEVELS.md` Level 2.*
 
-### Durable overlap locking
+### ~~Durable overlap locking~~ — PROMOTED TO PHASE 1 (blueprint R2)
 
-Phase 1 locking guards a single TaskControl process (ADR 0021). Durable, multi-process
-locking is a **Wave 5 requirement**, not an optional improvement, and is listed with its six
-deliverables in `../10_IMPLEMENTATION_BLUEPRINT.md`.
+**No longer deferred, and no longer optional.** Under cron-backed activation each activation
+is a separate process, so the process-local lock provides *no* overlap protection between
+activations. ADR 0023 unifies overlap leases and work-item claims into one durable claim
+capability, delivered in R2 — because cron-backed activation cannot be called overlap-safe
+without it.
 
-Until it ships, TaskControl must not claim overlap protection beyond one process in
-documentation, the UI, or an API response. Running two TaskControl processes against one
-database in Phase 1 gives no overlap protection.
+Until it ships, TaskControl must not claim overlap protection at all for cron-activated
+work.
 
-*Origin: ADR 0021, raised during Wave 3.*
+*Origin: ADR 0021 (superseded), corrected by ADR 0022 and ADR 0023.*
 
 ## Phase 3 — Distributed execution
 

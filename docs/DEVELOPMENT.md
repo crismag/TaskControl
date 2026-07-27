@@ -48,7 +48,7 @@ make check
 .venv/bin/taskctl health          # this process's health and effective configuration
 .venv/bin/taskctl health --json   # machine-readable
 
-.venv/bin/taskctl run <task>      # run a task once, through the real runtime
+.venv/bin/taskctl run <task>      # administrative run-now (not the scheduled-job path)
 .venv/bin/taskctl server          # start the API
 make run-api                      # same, with autoreload
 ```
@@ -69,6 +69,12 @@ With the API running:
 
 ## Running a task
 
+> **Note on product direction.** TaskControl is cron-backed: cron activates recurring work,
+> and TaskControl manages, records, and governs it (ADR 0022). Managed cron artefacts are
+> not yet implemented — they are blueprint wave R2. The command below is the
+> **administrative run-now** path, useful for validation and diagnosis. It is not, and will
+> not become, the way scheduled jobs are activated.
+
 ```bash
 .venv/bin/taskctl run daily-report        # by slug or by identifier
 .venv/bin/taskctl run daily-report --json
@@ -77,14 +83,15 @@ With the API running:
 Exit code 0 means the execution succeeded; 1 means it did not. A skipped or blocked
 execution is **not** a success — it is a recorded reason the work did not happen.
 
-### Overlap locking is process-local
+### Overlap protection is not yet in force
 
-`OverlapPolicy.FORBID` is honoured **within a single TaskControl process and nowhere
-wider** (ADR 0021). Two TaskControl processes, or an API and a separate worker, will not
-see each other's locks.
+`ProcessLocalOverlapLock` guards only a single process. Under cron-backed activation each
+activation is a **separate process**, so it will provide no protection between activations
+(ADR 0023).
 
-Durable multi-process locking is a Wave 5 requirement. Until it ships, do not run more than
-one TaskControl process against one database and expect overlap protection.
+Treat it as a test double. Durable claims — the one capability serving both scheduled
+overlap and work-item claiming — are delivered in blueprint wave R2, and until then
+TaskControl makes **no** overlap guarantee for cron-activated work.
 
 ## Logs
 

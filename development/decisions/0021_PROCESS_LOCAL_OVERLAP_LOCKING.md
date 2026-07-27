@@ -2,12 +2,22 @@
 
 - Document level: **1 — Architecture**
 - Lifecycle state: Canonical
-- Status: Accepted
+- Status: **Superseded** — retained for decision history; do not implement from it
 - Date: 2026-07-27
 - Owners: TaskControl maintainers
 - Supersedes: None
-- Superseded by: None
+- Superseded by: **ADR 0023 (Overlap Leases and Queue Claims Are One Capability)**
 - Related documents: `development/engineering/standards/21_API_AND_DATABASE_STANDARDS.md`, `development/10_IMPLEMENTATION_BLUEPRINT.md`, ADR 0011, ADR 0016, ADR 0018
+
+> **Superseded by ADR 0023 on 2026-07-27.** This decision accepted process-local locking
+> because Wave 3 ran executions from one process. ADR 0022 removed that premise: under
+> cron-backed activation every activation is a separate process, so an in-memory lock
+> provides **no** overlap protection between activations — not merely a weaker guarantee.
+>
+> The deferral reasoning below still holds for why durable locking was not built in Wave 3.
+> What changed is the deadline and the shape: durable claims are now required before
+> cron-backed activation can be called overlap-safe, and they are unified with work-item
+> claiming rather than designed separately. See ADR 0023.
 
 ## Context
 

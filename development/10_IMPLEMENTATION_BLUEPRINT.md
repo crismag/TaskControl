@@ -20,46 +20,251 @@ It does not restate the directory tree (see `engineering/repository/10_REPOSITOR
 
 ## Current position
 
-**Repository state: Waves 0–3 complete. TaskControl runs real work, classifies the result
-honestly, records every attempt, and always finishes an execution in a terminal persisted
-state. Expectations are not yet evaluated, and scheduling is not yet automatic.**
+**Repository state: Waves 0–3 complete under the previous internal-scheduler direction, and
+retained. The product direction changed on 2026-07-27: cron now owns recurring activation
+(ADR 0022). The completed work is repositioned as supporting execution services, not
+discarded.**
 
-**Next action: Wave 4 — Expectations and outcome evaluation.**
+**Next action: R1 — Wave 3 compatibility review and terminology cleanup.**
 
 | Wave | Name | Status |
 | --- | --- | --- |
-| 0 | Foundation and quality gates | **complete** (2026-07-26) |
-| 1 | Domain core | **complete** (2026-07-27) |
-| 2 | Persistence and migrations | **complete** (2026-07-27) |
-| 3 | Runtime and executors | **complete** (2026-07-27) |
-| 4 | Expectations and outcome evaluation | not started |
-| 5 | Scheduling, eligibility, and dependencies | not started |
-| 6 | Application services and audit | not started |
-| 7 | REST API v1 | not started |
-| 8 | CLI | not started |
-| 9 | Web interface | not started |
-| 10 | Approvals, recovery, and release readiness | not started |
+| 0 | Foundation and quality gates | complete (previous direction) — retained |
+| 1 | Domain core | complete (previous direction) — retained |
+| 2 | Persistence and migrations | complete (previous direction) — retained |
+| 3 | Runtime and executors | complete (previous direction) — retained, repositioned |
+| R0 | Canonical product and architecture reconciliation | **complete** (2026-07-27) |
+| R1 | Wave 3 compatibility review and terminology cleanup | not started |
+| R2 | Managed cron artefact vertical slice | not started |
+| R3 | Drop-in discovery and registration | not started |
+| R4 | Operational knowledge, import, adoption, and drift | not started |
+| R5 | Asynchronous work-item API and cron-woken worker | not started |
 
-Waves 0–4 constitute the **first usable milestone**: a task can be defined, run, and inspected with honest outcomes. Waves 0–10 constitute **Phase 1** of `product/PRODUCT_ROADMAP.md`.
+### The old Wave 4 is stopped
+
+The previous Wave 4 (expectations and outcome evaluation) is **cancelled as a standalone
+wave**. Expected outcomes remain a real product capability and return inside a cron-backed
+slice, where a failing expectation can be observed on a task cron actually activated. Waves
+5–10 of the previous sequence are superseded by R2–R5 and the phases in
+`product/PRODUCT_ROADMAP.md`.
+
+Nothing in Waves 0–3 is rewritten to pretend it always targeted this architecture. It did
+not. It was built correctly under ADR 0018, which ADR 0022 supersedes.
 
 ## Scope boundary for Phase 1
 
-Per ADR 0018, TaskControl executes work itself in Phase 1 through an internal scheduler. There is one target, `local`.
+Per ADR 0022, **cron owns recurring activation**. TaskControl renders, installs, and verifies
+managed cron artefacts, then records what happens.
 
-**In Phase 1:** task definitions and immutable revisions; manual and scheduled execution; run conditions and dependency eligibility; retries, timeouts, cancellation; attempts, outcomes, logs, history; expectations; audit; approvals; REST API, CLI, web UI; persistence with restart recovery.
+**In Phase 1:** task definitions and immutable revisions; human-friendly schedule authoring;
+managed cron artefact plan/apply/verify/drift, preserving unmanaged entries; import and
+adoption of existing cron entries; drop-in discovery and registration; durable claims
+(ADR 0023); explicit activation policy under degraded control state (ADR 0024); bounded
+execution services recording attempts, outcomes, and logs; operational knowledge; CLI and
+public API foundations; restart recovery.
 
-**Not in Phase 1:** generated scheduler artefacts, crontab or systemd writing, deployment plan/apply, drift detection, remote targets or workers, inventory groups, RBAC beyond a single administrator, notifications beyond a logging sink, plugin loading from third-party packages. These are Phase 2+ and are registered in `future/DEFERRED_CAPABILITIES.md`. Their **ports** are defined in Phase 1; their implementations are not.
+**Not in Phase 1:** an internal scheduler of any kind; remote hosts and worker fleets;
+scheduler adapters beyond cron; a generic DAG language; broker-scale queueing; RBAC beyond a
+single administrator; notifications beyond a logging sink.
 
-**No Phase 1 code writes to a user crontab or any host scheduler configuration.**
+**No component may run a recurring timer or polling loop for activation.** If a wave appears
+to need one, the design is wrong.
 
 ## Rules that apply to every wave
 
 1. The repository is runnable and green at the end of every wave. `make check` passes.
 2. Tests are written during the wave, not after it.
-3. A wave does not implement a later wave's capability. If you need it, stub the port and record it.
+3. A wave does not implement a later wave's capability. If you need it, stub the port and
+   record it.
 4. Every wave updates this document's status table and any affected Level 0/1 document.
-5. Deferred work goes in `future/DEFERRED_CAPABILITIES.md` or `OPEN_QUESTIONS.md`, never in scattered `TODO` comments.
-6. No mock data behind a real interface. An endpoint that cannot yet answer returns a documented error, not a fabricated result.
+5. Deferred work goes in `future/DEFERRED_CAPABILITIES.md` or `OPEN_QUESTIONS.md`, never in
+   scattered `TODO` comments.
+6. No mock data behind a real interface.
+7. **Nothing may reintroduce an always-on activation process, under any name.**
+
+---
+
+## Realignment waves
+
+### R0 — Canonical product and architecture reconciliation — **complete**
+
+Documentation only. Established cron-backed identity across Level 0 and Level 1, added
+ADRs 0022, 0023, and 0024, marked ADRs 0018 and 0021 superseded without erasing them,
+stopped the old Wave 4, and reconciled the index and audit.
+
+**Gate:** one product identity in the repository; no active document describes an internal
+scheduler as the activation engine.
+
+---
+
+### R1 — Wave 3 compatibility review and terminology cleanup
+
+**Goal:** know exactly which of the existing code works under cron-backed activation, on
+evidence rather than assumption.
+
+#### Build
+
+A written review — not a refactor — answering, with references to source:
+
+- whether execution services are callable from a short-lived process that exits;
+- whether anything assumes one persistent in-memory scheduler;
+- whether persistence and claims work across independent process invocations;
+- whether attempts can be associated with a cron activation and later with a work item;
+- whether failure to reach the control plane blocks local execution, and where that decision
+  currently lives;
+- whether configuration can resolve entirely from locally deployed assets;
+- which names encode the scheduler-first model and what they should become.
+
+The R0 reconciliation swept the repository and found these source locations still asserting
+the superseded direction. They were deliberately **not** edited, because R0 was
+documentation-only and naming is R1's job:
+
+| Location | What it now gets wrong |
+|---|---|
+| `src/taskcontrol/__init__.py` | Package docstring says TaskControl schedules work "itself through an internal scheduler" and "does not write to any host scheduler configuration" — both now inverted |
+| `src/taskcontrol/domain/execution/execution.py` | `TriggerSource.SCHEDULE` is documented as "the internal scheduler reached an occurrence"; it now means cron activated a managed artefact |
+| `src/taskcontrol/application/runtime/service.py` | Module docstring names "the internal scheduler" as a future caller |
+| `src/taskcontrol/application/runtime/__init__.py` | Same |
+
+Also for R1: `docs/DEVELOPMENT.md` and the domain handbook still present `taskctl run` as an
+ordinary workflow. It remains valid as an administrative and validation command, but it is no
+longer the scheduled-job path and should not read as though it were.
+
+Then the minimum code changes the review proves necessary:
+
+- rename what misleads;
+- mark `ProcessLocalOverlapLock` as a test double, not production overlap protection
+  (ADR 0023);
+- add the `activation_policy` field to the revision schema with the strict default
+  (ADR 0024).
+
+#### Acceptance
+
+- The review is committed and names specific modules.
+- No production path constructs `ProcessLocalOverlapLock`.
+- `activation_policy` exists, defaults to `require_control_state`, and round-trips.
+- No behaviour change beyond those two, and no Wave 3 capability is deleted.
+
+**Gate:** the existing suite still passes; the review states plainly what is reusable and
+what is not.
+
+---
+
+### R2 — Managed cron artefact vertical slice
+
+**Goal:** the complete user value chain — define without cron syntax, apply, let cron
+activate, inspect the outcome.
+
+#### Build
+
+- `ports/scheduler_management.py` — plan, apply, verify, remove against an external
+  scheduler.
+- `adapters/schedulers/cron/` — deterministic rendering, managed-block identity, crontab
+  read, write, and read-back verification.
+- **Durable claim capability** (ADR 0023): one primitive, with the scheduled-overlap policy.
+  This wave delivers it, because cron-backed activation cannot be called overlap-safe
+  without it.
+- Activation policy enforcement (ADR 0024), including the local journal path and its
+  reconciliation.
+- A short-lived wrapper command that cron invokes.
+- `plan`, `apply`, `verify`, `status`, `disable`, `enable` operations.
+
+#### Acceptance
+
+- Human-friendly schedule renders to the expected cron expression, deterministically.
+- Unmanaged crontab entries survive apply byte for byte.
+- Re-apply is idempotent; schedule update produces a correct plan and apply.
+- Read-back verification detects a mismatch; ambiguous managed-block identity fails closed.
+- A failed apply rolls back.
+- **A task activates and records an outcome with the API process stopped.**
+- Two concurrent activations of one task: exactly one runs, the other is `BLOCKED` with
+  `blocked.overlap_lock_held` — proven by a multi-**process** test.
+- Both activation policies behave as ADR 0024 specifies with persistence stopped, and a
+  journalled run reconciles into exactly one execution record.
+
+**Gate:** an integration test that installs a managed entry into a temporary crontab, waits
+for or safely simulates activation, and asserts the recorded outcome — with no TaskControl
+service running.
+
+---
+
+### R3 — Drop-in discovery and registration
+
+**Goal:** a runnable placed in an approved directory becomes a managed task without anyone
+editing a crontab.
+
+#### Build
+
+Directory scanning, package validation, content identity, registration and update proposals,
+quarantine for invalid packages, and a reconciler invocable by cron.
+
+#### Acceptance
+
+- A valid package is discovered, validated, and registered.
+- An invalid or incomplete package is quarantined and reported, never silently activated.
+- Permissions, ownership, and path safety are validated before anything is trusted.
+- Re-running discovery is idempotent.
+- A removed package is detected and its managed entry handled explicitly, not orphaned.
+
+**Gate:** discovery runs as a short-lived cron-invoked command against a temporary directory
+tree.
+
+---
+
+### R4 — Operational knowledge, import, adoption, and drift
+
+**Goal:** an operator can point TaskControl at an existing estate and understand it.
+
+#### Build
+
+Ownership, purpose, source, runbook, criticality, and review status on tasks. Import of
+existing user and system cron sources, classifying managed, unmanaged, duplicate,
+conflicting, and broken entries. Adoption without rewriting. Drift detection between
+intended and installed state.
+
+#### Acceptance
+
+- Import identifies managed and unmanaged entries and never modifies anything during import.
+- An entry can be adopted without changing the installed line.
+- Drift is detected and explained: what differs, and which side changed.
+- A missing runnable or directory is reported rather than discovered at activation.
+
+**Gate:** import a realistic crontab fixture and produce an accurate, explainable inventory.
+
+---
+
+### R5 — Asynchronous work-item API and cron-woken worker
+
+**Goal:** a remote system submits durable work without SSH, filesystem access, or crontab
+edits.
+
+#### Build
+
+`POST /api/v1/work-items` accepting a **registered task type**, payload, idempotency key,
+and optional not-before time, returning immediate durable acceptance. Persistent work-item
+state. A bounded, cron-woken worker that claims items using the same durable claim primitive
+(ADR 0023), processes them, records attempts, and moves them to terminal or retry-wait.
+Status queries.
+
+#### Acceptance
+
+- Submission returns an identifier and accepted status without waiting for execution.
+- A duplicate idempotency key returns the original item; the work runs once.
+- Two concurrently woken workers never process one item twice.
+- A worker killed mid-item releases its claim by lease expiry, and the item becomes eligible
+  again.
+- One invocation processes a bounded number of items and exits.
+- The API refuses arbitrary shell commands.
+
+**Gate:** submit through the API with no worker running, wake a worker, and observe the
+terminal result — end to end.
+
+---
+
+## Retained waves, previous direction
+
+The four waves below were completed under ADR 0018 and are retained. Their outcomes are
+recorded honestly, including the assumptions that no longer hold.
 
 ---
 
@@ -303,171 +508,13 @@ execution is left unfinished across every kind of ending.
 
 ---
 
-## Wave 4 — Expectations and outcome evaluation
-
-**Goal:** a zero exit code stops meaning success by default.
-
-### Build
-
-- `domain/expectations/` — `Expectation`, `ExpectationResult`, evaluator port.
-- Evaluators: expected exit codes, file exists, file minimum size, file freshness, output pattern match, completed-by deadline.
-- Wiring into the runtime so `SUCCEEDED` requires process success **and** every required expectation passing; otherwise `OUTCOME_FAILED`.
-
-### Acceptance
-
-- Each expectation result is stored separately with its own evidence.
-- A process exiting 0 with a failing required expectation yields `OUTCOME_FAILED`, not `SUCCEEDED`.
-- Optional expectations record failure without changing the outcome.
-- Evaluator errors yield a recorded evaluation error, not a silent pass.
-
-**Gate:** `product/USER_JOURNEYS.md` Journey 3 passes end to end.
-
----
-
-## Wave 5 — Scheduling, eligibility, and dependencies
-
-**Goal:** work runs on time, and every non-run is explained.
-
-### Build
-
-- `src/taskcontrol/ports/scheduler.py` — scheduler port with capability metadata (ADR 0007).
-- `src/taskcontrol/adapters/schedulers/internal/` — the Phase 1 internal scheduler: durable next-run computation, misfire policy, restart catch-up, no host scheduler writes.
-- Cron expression parsing, interval and weekday schedules, IANA time zones, DST-correct next-run preview.
-- Run-condition evaluation in deterministic order, returning structured decisions with reason codes.
-- Calendar-backed conditions with holidays, exclusions, and provenance.
-- Simple dependency eligibility: upstream succeeded, optional freshness window. Not a DAG engine.
-- `src/taskcontrol/ports/deployment.py` with a `local` implementation and contract tests, per ADR 0018.
-- **Durable overlap locking (required, not optional).** ADR 0021 defers it to this wave and
-  states that TaskControl may not claim overlap protection beyond one process until it
-  exists. It must deliver all six of:
-  1. a row-level claim durable across process restart;
-  2. an explicit owner identity per claim;
-  3. a lease with an expiry, so a dead owner does not block a task forever;
-  4. stale-lock recovery reconciling claims whose owner cannot be observed;
-  5. multi-**process** contention tests, not merely multi-thread ones;
-  6. documented behaviour when the lock store is unavailable — `CONDITION_ERROR` or
-     `INFRASTRUCTURE_FAILED`, never an assumed acquisition.
-  The `OverlapLock` port and its contract tests already exist; this wave adds an
-  implementation behind them and must pass the same tests unchanged.
-
-### Acceptance
-
-- Next-run preview is correct across DST spring-forward and fall-back in at least three time zones.
-- A skipped execution is a persisted execution with zero attempts, an `ExecutionOutcome.SKIPPED`, and a reason code.
-- `SKIPPED` and `BLOCKED` are produced in their correct cases per ADR 0016.
-- Restart within the misfire window catches up; outside it, records a misfire.
-- The internal scheduler and a manual trigger enter the same runtime path.
-- Overlap protection holds across two TaskControl processes sharing one database, proven by
-  a multi-process test. Until this passes, the process-local limitation of ADR 0021 stands
-  and must not be contradicted in documentation or the UI.
-
-**Gate:** parameterised schedule tests over DST and calendar boundaries; Journeys 2, 6, 7, and 8.
-
----
-
-## Wave 6 — Application services and audit
-
-**Goal:** one orchestration layer that every interface calls.
-
-### Build
-
-- `application/commands/` and `application/queries/` — the complete Phase 1 use-case surface.
-- `application/services/` — task authoring, validation, execution control, history queries.
-- `domain/governance/` + `adapters/audit/` — immutable audit events for every mutation, manual execution, cancellation, and approval action.
-- `ports/notifications.py` with a logging sink implementation.
-
-### Acceptance
-
-- No business rule exists outside `domain/` or `application/`.
-- Every mutation produces an audit event with actor, correlation id, and before/after references.
-- Audit events are append-only; no code path updates or deletes one.
-- Validation returns field-level and cross-field errors with stable codes.
-
-**Gate:** the architecture test extended to assert transport layers contain no branching business logic.
-
----
-
-## Wave 7 — REST API v1
-
-**Goal:** a documented, versioned public contract.
-
-### Build
-
-`/api/v1` routers for health and readiness, tasks and revisions, profiles, calendars, targets, validation, executions and logs, audit, adapter capabilities. Pydantic request and response schemas, cursor pagination, structured errors with stable codes and correlation ids, OpenAPI metadata, single-administrator authentication boundary with the seam for real identity in Phase 2.
-
-### Acceptance
-
-- Idempotency keys honoured on execution triggers.
-- Errors never expose stack traces or internal paths.
-- Secret values never appear in any response, including validation previews and error details.
-- OpenAPI document generates and validates.
-- Every endpoint has an integration test, including its failure paths.
-
-**Gate:** API integration suite green; a schema snapshot test guards accidental contract changes.
-
----
-
-## Wave 8 — CLI
-
-**Goal:** a first-class client for people, scripts, and CI.
-
-### Build
-
-`taskctl init`, `server`, `task create|list|show|validate|run|archive`, `execution list|show|logs|cancel`, `profile`, `calendar`, `schedule preview`, `adapters list`, `audit list`. Human and `--json` output modes; non-zero exit codes mapped to error taxonomy.
-
-### Acceptance
-
-- The CLI calls application services or the API; it contains no domain logic.
-- `--json` output is stable and documented for scripting.
-- Exit codes are documented and tested.
-
-**Gate:** CLI smoke tests covering every command's success and primary failure path.
-
----
-
-## Wave 9 — Web interface
-
-**Goal:** an operational interface, not a decorative dashboard.
-
-### Build
-
-React + TypeScript + Vite under `web/`. Pages: overview, tasks, task detail, task editor (command, schedule, profile, conditions, retry, timeout, expectations), validation results, executions, execution detail with logs and the full decision trail, profiles, calendars, audit, settings and adapter capabilities. Loading, empty, error, and confirmation states throughout.
-
-### Acceptance
-
-- Every displayed value comes from the API. No mocked data, no fabricated metrics.
-- The execution detail page answers Journey 13 in order, top to bottom.
-- Resolved configuration shows value, source layer, and redaction state.
-- The production build succeeds and component tests pass.
-
-**Gate:** Journey 1 completed entirely through the UI.
-
----
-
-## Wave 10 — Approvals, recovery, and release readiness
-
-**Goal:** the product is operable and installable by someone who is not its author.
-
-### Build
-
-- Approval workflow bound to an immutable revision, per `domain/06`, with `BLOCKED` / `blocked.approval_pending` semantics.
-- Restart recovery: reconcile executions left in flight, resolving to `UNKNOWN` or `INFRASTRUCTURE_FAILED` honestly.
-- Export and import of task definitions; database backup and restore documentation.
-- README walkthrough, troubleshooting, upgrade notes, contribution guidance, `docker-compose.yml` for PostgreSQL.
-- One end-to-end test covering define → schedule → run → fail → retry → succeed → inspect.
-
-### Acceptance
-
-- A killed server leaves no permanently in-flight execution after restart.
-- A new contributor completes the README walkthrough with no undocumented step.
-- Approval decisions are audited and attached to a specific revision.
-
-**Gate:** Phase 1 exit review against `product/PRODUCT_SCOPE.md`'s first-release boundary.
-
----
-
 ## Phase 1 exit criteria
 
-The phase is complete when a user who has never seen the repository can install TaskControl, define a task, schedule it, watch it run, see why it was skipped when it was skipped, inspect logs and every attempt, understand a failure and its retries, cancel a running job, recover from a restart, and manage all of it through the CLI, API, and web interface — without KAE, distributed workers, or enterprise infrastructure.
+The phase is complete when an operator can install TaskControl, define a recurring task
+without writing a cron expression, apply the managed cron entry, watch cron activate it with
+the TaskControl service stopped, see the outcome recorded with attempts and logs, adopt an
+existing crontab into management, and trust that two activations of one task will not
+overlap.
 
-At that point, reopen `future/DEFERRED_CAPABILITIES.md` and plan Phase 2, whose first capability is scheduler-artefact generation and cron deployment under ADR 0010 and ADR 0018.
+At that point, reopen `product/PRODUCT_ROADMAP.md` and plan Phase 2, whose first capability
+is remote asynchronous submission.

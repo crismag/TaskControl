@@ -2,8 +2,8 @@
 
 - Document level: **supporting**
 - Lifecycle state: Canonical
-- Audit date: 2026-07-26 (updated after Wave 0)
-- Performed during: the repository canonicalization pull request
+- Audit date: 2026-07-27 (updated after the cron-backed realignment, R0)
+- Performed during: the repository canonicalization PR; revised by realignment wave R0
 - Policy: ADR 0017
 
 ## Purpose
@@ -19,6 +19,36 @@ A complete inventory of every document, its lifecycle state, and why it exists. 
 | **Archived** | Historically important, no longer descriptive of any plan. |
 | **Future** | Correct and wanted, deliberately outside current scope. Not obsolete. |
 | **Open decision** | Unresolved choice, held in `OPEN_QUESTIONS.md`. |
+
+## Realignment R0 — 2026-07-27
+
+The product direction changed: cron owns recurring activation (ADR 0022). Documents changed
+in this reconciliation, all in place rather than as a new package:
+
+| File | Change |
+|---|---|
+| `/README.md` | Rewritten around cron-backed identity and the new architecture diagram |
+| `product/PRODUCT_VISION.md` | Rewritten: north star, six pillars, responsibility boundary, product test |
+| `product/PRODUCT_SCOPE.md` | Rewritten: cron management in scope, activation out of scope, queue limits stated |
+| `product/PRODUCT_ROADMAP.md` | Rewritten: Phase 1 is cron-backed managed tasks; Phase 2 is remote submission |
+| `product/PRODUCT_PHILOSOPHY.md` | "Two delivery modes" replaced by "how intent becomes activation" |
+| `product/USER_JOURNEYS.md` | Journey 1 corrected; 15 promoted to Phase 1; 16 and 17 added |
+| `product/USERS_AND_USE_CASES.md` | Cron-literacy standard; async submission |
+| `product/INTEGRATION_STRATEGY.md` | Async submission; prohibition on arbitrary shell submission |
+| `architecture/ARCHITECTURE_OVERVIEW.md` | Process model added; activation flow separated from execution flow; topologies replaced |
+| `domain/README.md` | Terminology table correcting schedule, trigger, execution, runtime, dependency, claim |
+| `domain/02_`, `domain/04_`, `domain/05_` | Cron-backed reading notes at the head of each |
+| `10_IMPLEMENTATION_BLUEPRINT.md` | Old Wave 4 stopped; R0–R5 introduced; Waves 0–3 retained with honest provenance |
+| `future/DEFERRED_CAPABILITIES.md` | Cron generation, crontab import, and durable locking promoted to Phase 1 |
+| `OPEN_QUESTIONS.md` | Q2 resolved; Q5–Q8 added (cron block granularity, crontab target, journal format, task types) |
+| `00_CONTEXT_INDEX.md` | Status, authority map, and file map updated |
+| `decisions/0018_*`, `decisions/0021_*` | Marked **Superseded** with banners; reasoning retained |
+| `decisions/0022_*`, `0023_*`, `0024_*` | **New** |
+| `realignment/README.md` | Marked **Historical — provenance only** |
+| `docs/DEVELOPMENT.md` | Run-now reframed as administrative; overlap protection stated as not in force |
+
+Deliberately **not** changed: Wave 3 source code. R0 was documentation-only; the four source
+docstrings still asserting the old direction are itemised in blueprint R1.
 
 ## Summary
 
@@ -71,6 +101,12 @@ Net change from the pre-canonicalization repository: 77 → 89 files. Nothing wa
 | `domain/00_*` … `domain/09_*` | Canonical | The domain handbook, unchanged in substance. The strongest material in the repository |
 | `decisions/README.md` | Canonical | ADR index. Its private precedence ladder replaced by a pointer to the single ladder |
 | `decisions/0000`–`0014` | Canonical | Existing ADRs, unchanged |
+| `decisions/0018_INTERNAL_SCHEDULER_BEFORE_ARTEFACT_DEPLOYMENT.md` | **Superseded** | Replaced by ADR 0022. Retained with reasoning intact — Wave 3 was built under it |
+| `decisions/0021_PROCESS_LOCAL_OVERLAP_LOCKING.md` | **Superseded** | Replaced by ADR 0023. Its premise (one process) was removed by cron-backed activation |
+| `decisions/0022_CRON_BACKED_ACTIVATION.md` | Canonical | **New, R0.** Cron owns recurring activation |
+| `decisions/0023_DURABLE_CLAIM_AS_ONE_CAPABILITY.md` | Canonical | **New, R0.** Overlap leases and queue claims are one primitive |
+| `decisions/0024_ACTIVATION_POLICY_UNDER_DEGRADED_CONTROL_STATE.md` | Canonical | **New, R0.** Per-task behaviour when persistence is unreachable |
+| `realignment/` (9 files) | Historical | Provenance for the correction; excluded from context loading |
 | `decisions/0015_CANONICAL_REPOSITORY_LAYOUT.md` | Canonical | **New.** Resolves four rival layouts |
 | `decisions/0016_EXECUTION_STATE_AND_OUTCOME_TAXONOMY.md` | Canonical | **New.** Resolves three rival outcome vocabularies; splits lifecycle state from terminal outcome |
 | `decisions/0017_DOCUMENTATION_LEVELS_AND_CANONICALIZATION.md` | Canonical | **New.** Documentation levels, five lifecycle states, supersession rule, prohibition on conflict-driven document creation |

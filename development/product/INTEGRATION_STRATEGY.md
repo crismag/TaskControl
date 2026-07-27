@@ -10,6 +10,8 @@ Allow external systems to use and extend TaskControl without depending on privat
 ## Supported integration surfaces
 
 - REST API for task, execution, scheduling, history, and administration operations.
+- Asynchronous work-item submission returning durable acceptance rather than waiting for
+  execution.
 - CLI for people, scripts, CI/CD, and local automation.
 - Webhooks and events for external reactions to lifecycle changes.
 - Plugins and adapters for execution backends, schedulers, notifications, secrets, and infrastructure.
@@ -25,6 +27,11 @@ Allow external systems to use and extend TaskControl without depending on privat
 5. Idempotency, retries, timeouts, correlation identifiers, and error semantics are explicit.
 6. Integration-specific metadata is namespaced and cannot redefine core behaviour.
 7. Breaking changes require migration guidance and an appropriate compatibility policy.
+8. Remote callers submit **registered task types and work items**, never arbitrary shell
+   commands. A submission API that accepts an arbitrary command is a remote-execution
+   service, which is not what this product is.
+9. Submission is asynchronous and durable by default. A caller receives an identifier and an
+   accepted status; cron later wakes a bounded worker to process the item.
 
 ## Integration categories
 

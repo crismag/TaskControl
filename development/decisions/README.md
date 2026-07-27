@@ -52,10 +52,13 @@ An ADR may refine a lower-level document but must not silently contradict approv
 - [0015 — Canonical Repository Layout](0015_CANONICAL_REPOSITORY_LAYOUT.md)
 - [0016 — Execution State and Outcome Taxonomy](0016_EXECUTION_STATE_AND_OUTCOME_TAXONOMY.md)
 - [0017 — Documentation Levels and Repository Canonicalization](0017_DOCUMENTATION_LEVELS_AND_CANONICALIZATION.md)
-- [0018 — Internal Scheduler Before Scheduler-Artefact Deployment](0018_INTERNAL_SCHEDULER_BEFORE_ARTEFACT_DEPLOYMENT.md)
+- [0018 — Internal Scheduler Before Scheduler-Artefact Deployment](0018_INTERNAL_SCHEDULER_BEFORE_ARTEFACT_DEPLOYMENT.md) — *superseded by 0022*
 - [0019 — Composition Roots Live Inside the Installed Package](0019_COMPOSITION_ROOTS_INSIDE_THE_PACKAGE.md)
 - [0020 — Reason Codes Distinguish Termination Causes](0020_TERMINATION_CAUSE_REASON_CODES.md)
-- [0021 — Overlap Locking Is Process-Local Until Wave 5](0021_PROCESS_LOCAL_OVERLAP_LOCKING.md)
+- [0021 — Overlap Locking Is Process-Local Until Wave 5](0021_PROCESS_LOCAL_OVERLAP_LOCKING.md) — *superseded by 0023*
+- [0022 — Cron Owns Recurring Activation](0022_CRON_BACKED_ACTIVATION.md)
+- [0023 — Overlap Leases and Queue Claims Are One Capability](0023_DURABLE_CLAIM_AS_ONE_CAPABILITY.md)
+- [0024 — Activation Policy When Control State Is Unreachable](0024_ACTIVATION_POLICY_UNDER_DEGRADED_CONTROL_STATE.md)
 
 ## When an ADR is required
 

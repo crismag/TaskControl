@@ -13,6 +13,24 @@ The handbook is intentionally independent of FastAPI, SQLAlchemy, React, cron, s
 
 > Users define operational intent. TaskControl resolves that intent into safe, observable, deployable execution.
 
+## Terminology after the cron-backed realignment
+
+ADR 0022 changed what activates recurring work. Four terms in this handbook must be read
+with the corrected meanings below. The concepts survive; the assumptions attached to them do
+not.
+
+| Term | Corrected meaning |
+|---|---|
+| **Schedule** | Desired activation intent, rendered and deployed through a scheduler-**management** adapter. It is not evidence that TaskControl runs a scheduler. |
+| **Trigger** | An activation event arriving from cron, a queue worker, or an explicit run-now request. TaskControl does not generate recurring triggers itself. |
+| **Execution** | One managed attempt to perform work, in a short-lived process. It may be initiated by cron, a worker, or an administrator. |
+| **Runtime** | Bounded execution services — locking, timeout, capture, classification, recording. It does not mean an always-on daemon. |
+| **Dependency** | Operational eligibility and constrained next-step release. It is not a general DAG language, and must not grow into one without an explicit product decision. |
+| **Claim / lease** | Durable, time-bounded ownership of a subject. One capability serves both scheduled-overlap prevention and work-item claiming (ADR 0023). |
+
+Where a handbook file still reads as though TaskControl owns activation, this table governs
+and the file is scheduled for correction in blueprint wave R1.
+
 ## Order within this handbook
 
 1. `00_DOMAIN_LANGUAGE_AND_BOUNDARIES.md`

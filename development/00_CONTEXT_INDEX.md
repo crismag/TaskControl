@@ -10,15 +10,22 @@ No other document publishes a repository-wide reading order or the precedence la
 
 ## What TaskControl is
 
-TaskControl is a standalone, general-purpose application for defining, scheduling, executing, observing, and governing automated work. It is useful on its own, without any external platform. See `product/PRODUCT_VISION.md`.
+TaskControl is a **cron-backed operational task management and asynchronous orchestration
+platform**. Cron owns recurring activation; TaskControl owns task lifecycle, cron
+management, operational knowledge, remote API contracts, durable queued work, execution
+services, and audit (ADR 0022).
+
+Already-deployed recurring work keeps running when TaskControl's API and web interface are
+down. See `product/PRODUCT_VISION.md`.
 
 ## Current state of the repository
 
-**Waves 0–3 complete.** TaskControl runs real work, classifies the result honestly, records
-every attempt, and always finishes an execution in a terminal persisted state. Expectations
-are not evaluated yet, and scheduling is not automatic yet.
+**Waves 0–3 complete under the previous internal-scheduler direction, and retained.** The
+product direction changed on 2026-07-27: cron owns recurring activation (ADR 0022). The
+completed execution services are repositioned as supporting capability, not discarded, and
+realignment wave R0 has reconciled the canonical documentation.
 
-The next action is Wave 4 (Expectations and outcome evaluation) of
+The previous Wave 4 is stopped. The next action is **R1 — Wave 3 compatibility review** of
 `10_IMPLEMENTATION_BLUEPRINT.md`. High-level product and architecture documentation is frozen: changes at Level 0 or Level 1 now require an ADR and an explicit supersession analysis (ADR 0017).
 
 ## Documentation levels
@@ -60,6 +67,9 @@ Exactly one document answers each of these. No other document may restate the an
 | What is the delivery order? | `product/PRODUCT_ROADMAP.md` (phases) → `10_IMPLEMENTATION_BLUEPRINT.md` (waves) |
 | What is the directory tree? | `engineering/repository/10_REPOSITORY_STRUCTURE.md` (per ADR 0015) |
 | What are the execution states and outcomes? | ADR 0016 |
+| What activates recurring work? | ADR 0022 — cron, never TaskControl |
+| How is concurrent work claimed? | ADR 0023 — one durable claim capability |
+| What happens if control state is unreachable? | ADR 0024 — per-task activation policy |
 | What does a domain concept mean? | `domain/` |
 | How must code be written and reviewed? | `engineering/` |
 | How does an agent work a task? | `ai-operations/` |
@@ -107,6 +117,7 @@ Exactly one document answers each of these. No other document may restate the an
 
 | File | Purpose |
 | --- | --- |
+| `realignment/` | Provenance for the 2026-07-27 cron-backed correction. **Historical**: the canonical documents above now carry the direction |
 | `future/README.md` | What Future means and how it differs from Archived |
 | `future/DEFERRED_CAPABILITIES.md` | Every deferred capability, its origin, and its phase |
 
@@ -116,7 +127,7 @@ Exactly one document answers each of these. No other document may restate the an
 | --- | --- |
 | `architecture/ARCHITECTURE_OVERVIEW.md` | Style, layers, runtime flow, topology, boundaries |
 | `domain/README.md` … `domain/09_*.md` | The domain handbook (11 files) |
-| `decisions/README.md`, `decisions/00NN_*.md` | ADRs 0001–0021 |
+| `decisions/README.md`, `decisions/00NN_*.md` | ADRs 0001–0024 |
 | `engineering/README.md` and subdirectories | Charter, laws, structure, dependency rules, standards, quality, governance, AI policy |
 
 ### Level 2 — Blueprint

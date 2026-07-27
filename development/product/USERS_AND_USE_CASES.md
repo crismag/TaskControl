@@ -21,9 +21,10 @@
 
 ### Personal and local automation
 
-- Run recurring scripts with logs and failure history.
-- Replace fragile unmanaged cron entries.
-- Start, pause, retry, or cancel long-running jobs.
+- Schedule recurring scripts without writing cron expressions, and keep logs and failure
+  history.
+- Bring existing unmanaged cron entries under management without rewriting them.
+- Pause, resume, retry, or cancel jobs, and see why a run did not happen.
 
 ### Engineering workflows
 
@@ -39,7 +40,9 @@
 
 ### Application orchestration
 
-- Allow another application to create or trigger work through the REST API.
+- Allow another application to submit durable asynchronous work through the REST API,
+  without SSH, filesystem access, or crontab edits.
+- Receive an immediate acceptance and inspect terminal status later.
 - Receive completion events through webhooks.
 - Keep execution logic outside the calling application.
 
@@ -51,4 +54,7 @@
 
 ## Product usability standard
 
-The base application must remain understandable to a user who has no knowledge of KAE, AI agents, distributed systems, or enterprise workflow products.
+The base application must remain understandable to a user who has no knowledge of KAE, AI
+agents, distributed systems, or enterprise workflow products — **and no knowledge of cron
+syntax**. Cron is the dependable mechanism underneath; understanding it must never be a
+prerequisite for ordinary use.
