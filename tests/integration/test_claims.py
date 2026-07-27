@@ -14,6 +14,7 @@ import pytest
 
 from taskcontrol.adapters.locking.durable import DurableOverlapLock
 from taskcontrol.adapters.persistence.claim_store import SqlAlchemyClaimStore
+from taskcontrol.adapters.persistence.unit_of_work import UnitOfWork
 from taskcontrol.common.errors import TransientInfrastructureError, ValidationError
 from taskcontrol.domain.claims.claim import Claim, ClaimSubject, FencingToken
 from taskcontrol.domain.common.identifiers import TaskId
@@ -348,3 +349,53 @@ def test_renewal_may_not_shorten_a_lease() -> None:
     )
     with pytest.raises(ValidationError):
         claim.renewed_until(UtcTimestamp(START.value + timedelta(seconds=30)))
+
+
+class TestInvariantsThatLookLikeCleanupOpportunities:
+    """Two properties a future refactor could remove while appearing to tidy up.
+
+    Both are load-bearing, both are non-obvious from the code that depends on them, and
+    neither fails visibly when broken — the damage shows up as two runs of one capability
+    during an incident. They are asserted here by name so that removing them breaks a test
+    that says why.
+    """
+
+    def test_a_released_and_reacquired_subject_never_reissues_a_token(
+        self, claims: SqlAlchemyClaimStore
+    ) -> None:
+        """Deleting released rows would create an ABA ownership problem.
+
+        A stalled owner holding token 2 would find the subject recycled back to token 2
+        under a new holder and conclude its own authority was still current. Lapsing the
+        row instead of deleting it is what makes the token strictly monotonic per subject
+        for the life of the database.
+        """
+        tokens = []
+        for owner in ("host-a:1", "host-b:2", "host-c:3"):
+            claim = claims.try_acquire(SUBJECT, owner=owner, lease=LEASE)
+            assert claim is not None
+            tokens.append(claim.fencing_token.to_primitive())
+            claims.release(claim)
+
+        assert tokens == sorted(set(tokens))
+        assert len(tokens) == len(set(tokens))
+
+    def test_a_claim_survives_a_business_transaction_rollback(
+        self, session_factory, clock: MovableClock
+    ) -> None:
+        """The claim store must not join the caller's unit of work.
+
+        If it did, a rollback would erase the protection while the work it protected had
+        already started — and the claim would be invisible to other processes until
+        commit, which is precisely when it needs to be visible.
+        """
+        claims = SqlAlchemyClaimStore(session_factory, clock)
+
+        with pytest.raises(RuntimeError), UnitOfWork(session_factory) as uow:
+            assert claims.try_acquire(SUBJECT, owner="host-a:1", lease=LEASE) is not None
+            uow.tasks.list_tasks(limit=1)
+            raise RuntimeError("the business transaction fails after the claim was taken")
+
+        # The transaction rolled back. The claim did not.
+        assert claims.current(SUBJECT) is not None
+        assert claims.try_acquire(SUBJECT, owner="host-b:2", lease=LEASE) is None

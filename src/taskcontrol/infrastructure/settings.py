@@ -198,6 +198,42 @@ class Settings(BaseSettings):
         }
 
 
+MISTAKEN_PREFIXES = ("TC_", "TASKCTL_", "TASK_CONTROL_")
+"""Prefixes an operator plausibly reaches for instead of ``TASKCONTROL_``.
+
+Strict validation that only guards the correct prefix guards nothing: the whole failure it
+exists to prevent is a variable that looks right, is wrong, and is silently ignored. A
+misprefixed variable is inert, and an inert configuration variable in a scheduled operation
+is exactly the class of silent failure this product exists to remove.
+"""
+
+
+def _misprefixed_environment_variables() -> dict[str, str]:
+    """Return variables that name a real setting under a wrong prefix.
+
+    Only variables whose remainder matches a known setting are reported. ``TC_HOME`` on a
+    developer's machine belongs to something else and is none of TaskControl's business;
+    ``TC_DATABASE_URL`` is unambiguously somebody meaning to configure TaskControl.
+
+    Returns:
+        Each offending variable mapped to the name it should have had.
+    """
+    known = {name.upper() for name in Settings.model_fields}
+    found: dict[str, str] = {}
+
+    for name in os.environ:
+        upper = name.upper()
+        for prefix in MISTAKEN_PREFIXES:
+            if not upper.startswith(prefix):
+                continue
+            remainder = upper[len(prefix) :]
+            if remainder in known:
+                found[name] = f"{ENV_PREFIX}{remainder}"
+            break
+
+    return dict(sorted(found.items()))
+
+
 def _unknown_environment_variables() -> list[str]:
     """Return prefixed environment variables that match no known setting.
 
@@ -227,10 +263,20 @@ def load_settings(**overrides: object) -> Settings:
         Validated settings.
 
     Raises:
-        ConfigurationError: If a prefixed environment variable is unrecognised, or if the
-            environment does not produce a valid configuration. The message names the
-            offending fields and never includes their values, which may be secret.
+        ConfigurationError: If a variable names a real setting under a wrong prefix, if a
+            correctly prefixed variable is unrecognised, or if the environment does not
+            produce a valid configuration. The message names the offending fields and
+            never includes their values, which may be secret.
     """
+    if misprefixed := _misprefixed_environment_variables():
+        corrections = "; ".join(
+            f"{wrong} -> use {right} instead" for wrong, right in misprefixed.items()
+        )
+        raise ConfigurationError(
+            f"Unsupported environment variable prefix. {corrections}.",
+            details={"misprefixed_variables": misprefixed, "env_prefix": ENV_PREFIX},
+        )
+
     if unknown := _unknown_environment_variables():
         raise ConfigurationError(
             "Unrecognised TaskControl environment variables.",
