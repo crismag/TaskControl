@@ -15,6 +15,11 @@ import json
 from enum import StrEnum
 from typing import Any
 
+from taskcontrol.domain.deployment.strategies import (
+    DeploymentStrategy,
+    DeploymentTarget,
+    PeriodicClassification,
+)
 from taskcontrol.domain.execution.results import BackoffStrategy, OverlapPolicy
 from taskcontrol.domain.tasks.actions import (
     ExecutorType,
@@ -122,6 +127,49 @@ def _revision_schema() -> dict[str, Any]:
             },
             "action": _action_schema(),
             "controls": _controls_schema(),
+            "deployment": _deployment_schema(),
+            "activation_schedule": {
+                "type": ["string", "null"],
+                "description": (
+                    "Five-field cron expression. Absent for on-demand capabilities, and "
+                    "for run-parts deployment, where the directory supplies the cadence."
+                ),
+            },
+        },
+    }
+
+
+def _deployment_schema() -> dict[str, Any]:
+    """Return the schema fragment for a deployment specification (ADR 0026)."""
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "strategy": {
+                "enum": _enum_values(DeploymentStrategy),
+                "description": "The shape of the managed cron artefact.",
+            },
+            "target": {
+                "enum": _enum_values(DeploymentTarget),
+                "description": (
+                    "Where the artefact is written. Not every strategy may be written to "
+                    "every target; an invalid pairing is rejected at validation."
+                ),
+            },
+            "classification": {
+                "enum": [*_enum_values(PeriodicClassification), None],
+                "description": (
+                    "A coarse cadence that supplies a default strategy and target, and "
+                    "which run-parts directory the artefact belongs in."
+                ),
+            },
+            "execution_user": {
+                "type": ["string", "null"],
+                "description": (
+                    "The user the work runs as. Only the system crontab and /etc/cron.d "
+                    "can express this."
+                ),
+            },
         },
     }
 

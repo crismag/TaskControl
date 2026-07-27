@@ -58,3 +58,9 @@ revision:
     overlap: forbid
     max_concurrent: 1
     activation_policy: require_control_state
+  deployment:
+    strategy: cron_d_file
+    target: cron_d
+    classification: null
+    execution_user: settlement
+  activation_schedule: 30 17 * * 1-5

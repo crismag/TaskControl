@@ -37,6 +37,7 @@ from taskcontrol.domain.common.values import (
     Slug,
     UtcTimestamp,
 )
+from taskcontrol.domain.deployment.strategies import DeploymentSpecification
 from taskcontrol.domain.execution.execution import (
     Execution,
     ExecutionAttempt,
@@ -52,6 +53,7 @@ from taskcontrol.domain.execution.vocabulary import (
     ExecutionState,
     ReasonCode,
 )
+from taskcontrol.domain.scheduling.schedules import CronExpression
 from taskcontrol.domain.tasks.actions import ActionSpecification
 from taskcontrol.domain.tasks.lifecycle import PublicationState, TaskLifecycleState
 from taskcontrol.domain.tasks.revision import ExecutionControls, TaskRevision
@@ -216,6 +218,10 @@ def revision_content(revision: TaskRevision) -> dict[str, Any]:
     return {
         "action": revision.action.to_primitive(),
         "controls": revision.controls.to_primitive(),
+        "deployment": revision.deployment.to_primitive(),
+        "activation_schedule": (
+            revision.activation_schedule.to_primitive() if revision.activation_schedule else None
+        ),
     }
 
 
@@ -293,6 +299,12 @@ def record_to_revision(record: TaskRevisionRecord) -> TaskRevision:
         schema_version=SchemaVersion.parse(record.schema_version),
         publication_state=PublicationState(record.publication_state),
         controls=ExecutionControls.from_primitive(content.get("controls") or {}),
+        deployment=DeploymentSpecification.from_primitive(content.get("deployment") or {}),
+        activation_schedule=(
+            CronExpression(content["activation_schedule"])
+            if content.get("activation_schedule")
+            else None
+        ),
         change_summary=record.change_summary,
         published_at=from_naive_utc(record.published_at),
         published_by=OwnerId(record.published_by) if record.published_by else None,
