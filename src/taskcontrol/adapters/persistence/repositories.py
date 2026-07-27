@@ -20,7 +20,12 @@ from taskcontrol.adapters.persistence.models import (
     TaskRecord,
     TaskRevisionRecord,
 )
-from taskcontrol.common.errors import ConflictError, NotFoundError
+from taskcontrol.common.errors import (
+    ConflictError,
+    NotFoundError,
+    TaskControlError,
+    ValidationError,
+)
 from taskcontrol.domain.common.identifiers import ExecutionId, TaskId, TaskRevisionId
 from taskcontrol.domain.common.tracing import IdempotencyKey
 from taskcontrol.domain.common.values import RevisionNumber, Slug
@@ -260,13 +265,7 @@ class SqlAlchemyExecutionRepository:
             self._session.flush()
         except IntegrityError as exc:
             self._session.rollback()
-            raise ConflictError(
-                "An execution with this identifier or idempotency key already exists.",
-                details={
-                    "execution_id": str(execution.execution_id),
-                    "task_id": str(execution.task_id),
-                },
-            ) from exc
+            raise _integrity_failure(execution, exc) from exc
 
     def get(self, execution_id: ExecutionId) -> Execution | None:
         """Return an execution and its attempts."""
@@ -359,3 +358,31 @@ class SqlAlchemyExecutionRepository:
             .order_by(ExecutionAttemptRecord.attempt_number)
         )
         return {record.attempt_id: record for record in records}
+
+
+def _integrity_failure(execution: Execution, error: IntegrityError) -> TaskControlError:
+    """Explain what the database actually refused.
+
+    Every integrity failure here used to be reported as a duplicate, which sent me looking
+    for a conflicting execution when the real problem was a reference to a task or revision
+    that does not exist. The two failures need different responses, so they get different
+    errors.
+    """
+    if "foreign key" in str(error.orig).lower():
+        return ValidationError(
+            "This execution references a task or revision that does not exist in this "
+            "database. A journalled run reconciled against a different installation, or "
+            "the definition it ran was deleted.",
+            details={
+                "execution_id": str(execution.execution_id),
+                "task_id": str(execution.task_id),
+                "revision_id": str(execution.revision_id),
+            },
+        )
+    return ConflictError(
+        "An execution with this identifier or idempotency key already exists.",
+        details={
+            "execution_id": str(execution.execution_id),
+            "task_id": str(execution.task_id),
+        },
+    )
