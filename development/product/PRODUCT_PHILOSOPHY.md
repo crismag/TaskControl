@@ -165,6 +165,41 @@ Before accepting a major feature, ask:
 
 When the answer is no, reconsider the design.
 
+## The recognition test
+
+Beyond the feature-level product test, one question governs whether TaskControl is
+succeeding at all:
+
+> **Can a production engineer who has never seen TaskControl immediately recognise it as a
+> platform that automates the work they currently perform manually?**
+
+Not "can they learn it". Not "is it well engineered". **Recognise** — in the first few
+minutes, without a guided tour.
+
+That means they should see their own working life reflected back:
+
+- a crontab they recognise, and what TaskControl would do to it;
+- a job that failed at 3am and the record explaining why;
+- the schedule change they made last Tuesday, and who approved it;
+- the runbook that currently lives in a wiki nobody updates;
+- the queue of requests some application dumps into a database table.
+
+If instead they see task definitions, revision lifecycles, execution outcomes, and
+port-and-adapter boundaries, the product is describing its own implementation rather than
+their job. Those things must exist; they must not be what a production engineer meets first.
+
+### Applying it
+
+The test is failed, not merely unmet, when:
+
+- a reader must understand the architecture before understanding the point;
+- the examples demonstrate the data model rather than an operational problem;
+- documentation leads with governance vocabulary instead of an engineer's workflow;
+- the shortest path to "I see what this does" runs through a design document.
+
+It is passed when the shortest honest demonstration is a before-and-after of something the
+engineer already maintains.
+
 ## Where this document does not decide
 
 Product philosophy sets the standard a feature must meet. It does not decide delivery order, scope boundaries, or vocabulary. Those belong to `PRODUCT_ROADMAP.md`, `PRODUCT_SCOPE.md`, and the ADRs respectively.

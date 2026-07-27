@@ -529,5 +529,24 @@ the TaskControl service stopped, see the outcome recorded with attempts and logs
 existing crontab into management, and trust that two activations of one task will not
 overlap.
 
+### The recognition test
+
+Phase 1 is not complete on capability alone. It must also pass:
+
+> Can a production engineer who has never seen TaskControl immediately recognise it as a
+> platform that automates the work they currently perform manually?
+
+Concretely, that requires at least:
+
+- a README whose first demonstration is a **before-and-after crontab**, not a feature list;
+- worked examples drawn from real operational work — a backup, a market-close job, a report
+  — rather than from the data model;
+- a quickstart where the first command produces something an engineer recognises, in
+  minutes, without reading a design document;
+- failure output that reads like an incident note rather than a status enum.
+
+A release that satisfies every functional criterion above and fails this one has built the
+right machinery behind the wrong front door.
+
 At that point, reopen `product/PRODUCT_ROADMAP.md` and plan Phase 2, whose first capability
 is remote asynchronous submission.
