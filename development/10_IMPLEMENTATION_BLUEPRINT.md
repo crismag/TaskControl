@@ -20,15 +20,16 @@ It does not restate the directory tree (see `engineering/repository/10_REPOSITOR
 
 ## Current position
 
-**Repository state: Wave 0 complete. The project installs, lints, type-checks, and tests
-green. No product behaviour beyond version and health.**
+**Repository state: Waves 0 and 1 complete. The product vocabulary exists as typed,
+tested, framework-free code, with portable YAML bundles and a published JSON Schema.
+Nothing is persisted or executed yet.**
 
-**Next action: Wave 1 — Domain core.**
+**Next action: Wave 2 — Persistence and migrations.**
 
 | Wave | Name | Status |
 | --- | --- | --- |
 | 0 | Foundation and quality gates | **complete** (2026-07-26) |
-| 1 | Domain core | not started |
+| 1 | Domain core | **complete** (2026-07-27) |
 | 2 | Persistence and migrations | not started |
 | 3 | Runtime and executors | not started |
 | 4 | Expectations and outcome evaluation | not started |
@@ -165,6 +166,33 @@ Plus `schemas/` JSON Schema export and `examples/` with two runnable sample task
 - `domain/` imports nothing outside the standard library. Enforced by the Wave 0 architecture test.
 
 **Gate:** domain unit-test coverage of invariants, including negative cases for every validation rule.
+
+### Outcome
+
+Delivered in five slices: `common` (identifiers and value objects), `execution` (the ADR
+0016 vocabulary), `policies` (classification and retry), `tasks` (Task, TaskRevision,
+ActionSpecification), `configuration` (layers and resolution), `scheduling` (schedules,
+calendars, conditions), and the serialization adapter with examples and JSON Schema.
+
+Deviations and decisions worth carrying forward:
+
+1. **Serialization is an adapter, not domain code.** `domain/` may import only the
+   standard library, so PyYAML cannot live there. Domain types expose
+   `to_primitive`/`from_primitive`; `adapters/serialization/` owns the file format. The
+   constraint improved the design — the wire format is now entirely replaceable.
+2. **The JSON Schema is hand-maintained, not reflected** from the dataclasses. Generating
+   it would publish every internal rename as a breaking contract change. Enum members are
+   read from the domain enums, and a test asserts the exported file matches the code, so
+   it cannot drift silently.
+3. **`UUIDv7` is implemented here** — `uuid.uuid7` arrives in Python 3.14. Identifiers sort
+   by creation time, which Wave 2 will rely on for index locality.
+4. **Two bugs were found by tests rather than review**: `astimezone` on a datetime already
+   in the target zone is a no-op, so the DST nonexistent-time check never fired; and a
+   `Protocol` declaring a mutable attribute is not satisfied by a frozen dataclass field.
+
+Verified: `make check` green; 578 tests; 94% coverage; both examples round-trip
+byte-identically; both validate against the exported schema; `domain/` imports nothing
+outside the standard library, enforced by the Wave 0 architecture test.
 
 ---
 
