@@ -160,14 +160,42 @@ fails the suite rather than a release.
 ### Testing against PostgreSQL
 
 The persistence suite runs against both backends. PostgreSQL tests skip with an explanatory
-message unless a URL is provided:
+message unless a URL is provided. **CI always provides one**, and fails if those tests skip.
 
-```bash
-docker run --rm -d -p 5432:5432 -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=taskcontrol_test postgres:16
-TASKCONTROL_TEST_POSTGRES_URL=postgresql+psycopg://postgres:dev@localhost/taskcontrol_test make test
+With an existing PostgreSQL server, create a dedicated test database:
+
+```sql
+-- sudo -u postgres psql
+CREATE ROLE taskcontrol LOGIN PASSWORD 'choose-a-password';
+CREATE DATABASE taskcontrol_test OWNER taskcontrol;
 ```
 
-A behaviour that only holds on SQLite is not a behaviour TaskControl has.
+Then:
+
+```bash
+export TC_TEST_POSTGRES_URL=postgresql+psycopg://taskcontrol:choose-a-password@127.0.0.1:5432/taskcontrol_test
+make test
+```
+
+Or with Docker, leaving any local server untouched:
+
+```bash
+docker run --rm -d -p 5433:5432 \
+  -e POSTGRES_USER=taskcontrol -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=taskcontrol_test postgres:16
+export TC_TEST_POSTGRES_URL=postgresql+psycopg://taskcontrol:dev@127.0.0.1:5433/taskcontrol_test
+```
+
+> **The database must be dedicated to testing.** The fixtures drop every TaskControl table
+> between tests. Never point this at a database holding anything you want to keep.
+
+The variable is deliberately **not** prefixed `TASKCONTROL_`. That namespace belongs to
+application settings, and the application rejects unknown variables carrying it — so a
+harness variable using that prefix is either stripped by test isolation or rejected as a
+typo. Both happened before the rename.
+
+A behaviour that only holds on SQLite is not a behaviour TaskControl has. A boolean column
+default of `0` passed SQLite for two waves and failed PostgreSQL outright the first time it
+ran.
 
 ## Configuration
 

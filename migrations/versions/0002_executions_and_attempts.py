@@ -87,7 +87,7 @@ def upgrade() -> None:
         sa.Column("stderr", sa.Text(), nullable=False, server_default=""),
         sa.Column("stdout_bytes", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("stderr_bytes", sa.Integer(), nullable=False, server_default="0"),
-        sa.Column("output_truncated", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("output_truncated", sa.Boolean(), nullable=False, server_default=sa.false()),
         # CASCADE, unlike elsewhere: an attempt has no meaning without its execution, and
         # executions are themselves protected by RESTRICT from their task and revision.
         sa.ForeignKeyConstraint(
