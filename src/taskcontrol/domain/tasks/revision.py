@@ -12,6 +12,7 @@ digest have the same execution meaning, whichever machine produced them.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from enum import StrEnum
 from typing import Any, Self
 
 from taskcontrol.common.errors import DomainRuleViolationError, ValidationError
@@ -34,8 +35,46 @@ from taskcontrol.domain.tasks.lifecycle import (
     assert_legal_publication_transition,
 )
 
-CURRENT_REVISION_SCHEMA_VERSION = SchemaVersion(1, 0)
-"""The revision schema this build writes. Bump the minor for additive changes."""
+
+class ActivationPolicy(StrEnum):
+    """What a cron-woken wrapper does when TaskControl's control state is unreachable.
+
+    Cron has already activated the work; something must decide whether to proceed. The
+    honest answer is task-specific, so it is recorded in the definition rather than assumed
+    globally (ADR 0024).
+    """
+
+    REQUIRE_CONTROL_STATE = "require_control_state"
+    """Do not execute without a durable attempt record.
+
+    The runnable does not run; the activation is reconciled as an infrastructure failure
+    once persistence returns. For work where an unrecorded run is worse than a missed one:
+    financial processing, regulated operations, anything a human may re-run by hand.
+
+    The default, so an operator who has not considered this case gets the auditable
+    behaviour and a loud failure rather than a silent one.
+    """
+
+    CONTINUE_WITH_LOCAL_JOURNAL = "continue_with_local_journal"
+    """Execute anyway, journal locally, and reconcile later.
+
+    For work where missing the run is worse than temporarily missing central observability:
+    backups, log rotation, cleanup, cache warming.
+
+    The journal is not optional. Without it this is simply an unrecorded run.
+    """
+
+    @property
+    def executes_without_control_state(self) -> bool:
+        """Whether the runnable may proceed when persistence is unreachable."""
+        return self is ActivationPolicy.CONTINUE_WITH_LOCAL_JOURNAL
+
+
+CURRENT_REVISION_SCHEMA_VERSION = SchemaVersion(1, 1)
+"""The revision schema this build writes. Bump the minor for additive changes.
+
+1.1 added ``activation_policy``. Additive and defaulted, so a 1.0 bundle still loads.
+"""
 
 MAX_CHANGE_SUMMARY_LENGTH = 2000
 
@@ -49,12 +88,16 @@ class ExecutionControls:
         retry: How many attempts and how they are spaced.
         overlap: What happens when a trigger arrives while it is already running.
         max_concurrent: Ceiling on simultaneous executions when overlap is allowed.
+        activation_policy: What to do when control state is unreachable at activation
+            (ADR 0024). Defaults to refusing, so the auditable behaviour is inherited and
+            choosing availability is a deliberate, visible act.
     """
 
     timeout: TimeoutPolicy = field(default_factory=TimeoutPolicy.unlimited)
     retry: RetryPolicy = field(default_factory=RetryPolicy.none)
     overlap: OverlapPolicy = OverlapPolicy.FORBID
     max_concurrent: int = 1
+    activation_policy: ActivationPolicy = ActivationPolicy.REQUIRE_CONTROL_STATE
 
     def __post_init__(self) -> None:
         """Validate the controls.
@@ -91,6 +134,7 @@ class ExecutionControls:
             },
             "overlap": str(self.overlap),
             "max_concurrent": self.max_concurrent,
+            "activation_policy": str(self.activation_policy),
         }
 
     @classmethod
@@ -129,6 +173,10 @@ class ExecutionControls:
             ),
             overlap=OverlapPolicy(data.get("overlap", OverlapPolicy.FORBID)),
             max_concurrent=data.get("max_concurrent", 1),
+            # Absent in schema 1.0 bundles; the strict default is what they should get.
+            activation_policy=ActivationPolicy(
+                data.get("activation_policy", ActivationPolicy.REQUIRE_CONTROL_STATE)
+            ),
         )
 
 

@@ -1,5 +1,5 @@
 kind: TaskBundle
-schema_version: '1.0'
+schema_version: '1.1'
 task:
   task_id: task_01936b40-0000-7000-8000-000000000002
   name: Daily Settlement Report
@@ -57,3 +57,4 @@ revision:
       retry_timeouts: false
     overlap: forbid
     max_concurrent: 1
+    activation_policy: require_control_state

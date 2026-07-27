@@ -48,16 +48,19 @@ class TriggerSource(StrEnum):
 
     Recorded because "why did this run at 3am?" is a different question from "what did it
     do", and an operator needs both.
+
+    This is the **activation mechanism**, recorded as provenance. No domain logic may branch
+    on it: recurring and on-demand activation produce the same execution (ADR 0025).
     """
 
     MANUAL = "manual"
-    "A person asked for it, through the CLI or the API."
+    "A person asked for it, through the CLI."
 
     SCHEDULE = "schedule"
-    "The internal scheduler reached an occurrence."
+    "Cron activated a managed artefact: it is now time to run this capability."
 
     API = "api"
-    "An external system triggered it through the public API."
+    "An external system requested it through a transport — REST, MCP, or another adapter."
 
     RETRY = "retry"
     "A previous attempt failed and the retry policy asked for another."

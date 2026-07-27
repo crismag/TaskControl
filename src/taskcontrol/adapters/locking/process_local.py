@@ -1,4 +1,18 @@
-"""Overlap locking within one TaskControl process.
+"""Overlap locking within one process: a test double, not for production use.
+
+.. warning::
+
+   Under cron-backed activation this lock provides **no overlap protection at all**. Every
+   cron activation is a separate process, and this lock holds its state in memory, so two
+   activations of the same task will both run.
+
+   That is not a prediction. R1 measured it: two concurrent activations of a task with
+   ``OverlapPolicy.FORBID`` both executed to completion. See
+   ``development/reviews/R1_WAVE3_COMPATIBILITY.md``, Finding 1.
+
+   Durable claims (ADR 0023) replace this for every real activation path. Until they exist,
+   TaskControl makes **no** overlap guarantee, and this class exists only so in-process
+   tests can exercise the ``OverlapLock`` port.
 
 **Scope of the guarantee.** This lock prevents two executions of a task overlapping *inside
 a single TaskControl process*. That is all.
@@ -15,8 +29,9 @@ It is not durable, not distributed, and not multi-worker safe. The class is name
 ``ProcessLocalOverlapLock`` so that a reader encountering it in a stack trace, a log line,
 or an autocomplete list learns the limitation without having to look it up.
 
-Durable locking — row-level claims, owner identity, leases, and stale-lock recovery — is a
-**requirement of Wave 5**, designed together with the scheduler. See **ADR 0021**.
+Durable claims — row-level ownership, leases, and stale-claim recovery, serving both
+scheduled overlap and work-item claiming — are delivered in **R2**. See **ADR 0023**, which
+supersedes ADR 0021.
 """
 
 from __future__ import annotations
@@ -36,10 +51,12 @@ SCOPE_DESCRIPTION = "this TaskControl process only"
 
 
 class ProcessLocalOverlapLock:
-    """Prevents overlapping executions of one task within this process.
+    """Prevent overlapping executions of one task within this process (test double).
 
-    Thread-safe. Not process-safe, not host-safe, not cluster-safe — see the module
-    docstring and ADR 0021.
+    Thread-safe. Not process-safe, not host-safe, not cluster-safe — and therefore useless
+    for cron-backed activation, where every activation is a separate process. Use only in
+    tests that exercise the port in one process; see the module docstring, ADR 0023, and
+    R1 Finding 1.
 
     Acquisition never waits. A task that cannot start now is recorded as ``BLOCKED`` and
     explained; blocking on a lock would leave an execution invisible while its schedule

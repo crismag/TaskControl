@@ -30,8 +30,11 @@ completed execution services are repositioned as supporting capability, not disc
 realignment wave R0 has reconciled the canonical documentation.
 
 R0.1 then re-cut the model around operational capabilities and two kinds of activation
-(ADR 0025). The previous Wave 4 is stopped. The next action is **R1 — Wave 3 compatibility
-review** of `10_IMPLEMENTATION_BLUEPRINT.md`. High-level product and architecture documentation is frozen: changes at Level 0 or Level 1 now require an ADR and an explicit supersession analysis (ADR 0017).
+(ADR 0025). R1 reviewed the existing code against the new direction and found it
+substantially reusable — see `reviews/R1_WAVE3_COMPATIBILITY.md`.
+
+The previous Wave 4 is stopped. The next action is **R2 — managed cron artefact vertical
+slice** of `10_IMPLEMENTATION_BLUEPRINT.md`. High-level product and architecture documentation is frozen: changes at Level 0 or Level 1 now require an ADR and an explicit supersession analysis (ADR 0017).
 
 ## Documentation levels
 
@@ -155,6 +158,7 @@ Exactly one document answers each of these. No other document may restate the an
 | File | Purpose |
 | --- | --- |
 | `ai-operations/README.md` … `11_*.md` | Agent operating playbooks (12 files) |
+| `reviews/R1_WAVE3_COMPATIBILITY.md` | Evidence-based review of Wave 3 under cron-backed activation |
 | `prompts/IMPLEMENTATION_PROMPT.md` | The single agent prompt |
 | `specifications/` | Per-wave specifications, created as waves begin |
 

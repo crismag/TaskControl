@@ -1,8 +1,11 @@
 """The execution runtime — one path from trigger to recorded outcome.
 
-Every caller enters here: the CLI today, the API and the internal scheduler in later
-waves. There is deliberately no second path, because two paths would eventually classify
-the same failure two different ways.
+Every caller enters here: a cron-invoked wrapper, a queue worker, an administrative run-now,
+and any transport adapter. There is deliberately no second path, because two paths would
+eventually classify the same failure two different ways.
+
+Activation never redefines execution (ADR 0025). Whatever caused the request — time arriving
+or somebody asking — the work below is identical.
 
 **The guarantee this module makes: an execution that is created reaches a terminal
 persisted state.** Not "usually", and not "unless something unexpected happens". An
@@ -12,7 +15,16 @@ classification itself fails, when persistence fails, and when the runtime is int
 If the runtime genuinely cannot say what happened, it records `UNKNOWN`, which is honest,
 rather than guessing, which is not.
 
-Wave 3 scope: expectations are **not** evaluated. `SUCCEEDED` here means the process
+Two limits apply until R2 addresses them, both recorded in
+``development/reviews/R1_WAVE3_COMPATIBILITY.md``:
+
+* This service reads the task revision from persistence before it can execute, so it cannot
+  yet honour ADR 0024's availability-first activation policy — a cron wrapper must resolve
+  its revision from locally deployed assets.
+* Overlap protection depends on the injected lock. The Phase 1 process-local implementation
+  provides none between separate activations; durable claims arrive in R2 (ADR 0023).
+
+Expectations are **not** evaluated. `SUCCEEDED` here means the process
 succeeded, nothing more. `OUTCOME_FAILED` is unreachable until Wave 4 supplies real
 evidence — the seam exists and stays empty, because fabricating evidence to light up a code
 path would make the record lie.

@@ -25,7 +25,7 @@ retained. The product direction changed on 2026-07-27: cron now owns recurring a
 (ADR 0022). The completed work is repositioned as supporting execution services, not
 discarded.**
 
-**Next action: R1 — Wave 3 compatibility review and terminology cleanup.**
+**Next action: R2 — Managed cron artefact vertical slice.**
 
 | Wave | Name | Status |
 | --- | --- | --- |
@@ -34,7 +34,7 @@ discarded.**
 | 2 | Persistence and migrations | complete (previous direction) — retained |
 | 3 | Runtime and executors | complete (previous direction) — retained, repositioned |
 | R0 | Canonical product and architecture reconciliation | **complete** (2026-07-27) |
-| R1 | Wave 3 compatibility review and terminology cleanup | not started |
+| R1 | Wave 3 compatibility review and terminology cleanup | **complete** (2026-07-27) |
 | R2 | Managed cron artefact vertical slice | not started |
 | R3 | Drop-in discovery and registration | not started |
 | R4 | Operational knowledge, import, adoption, and drift | not started |
@@ -152,6 +152,36 @@ Then the minimum code changes the review proves necessary:
 **Gate:** the existing suite still passes; the review states plainly what is reusable and
 what is not.
 
+#### Outcome
+
+The review is at `reviews/R1_WAVE3_COMPATIBILITY.md`. Every claim in it was produced by
+running the code, not by reading it.
+
+**Verdict: Wave 3 is substantially reusable.** Execution services, outcome vocabulary,
+attempt persistence, retry classification, and the terminal-state guarantee all work
+unmodified from short-lived processes. Nothing assumes a persistent scheduler — the only two
+loops are per-execution.
+
+Three findings change R2's scope:
+
+1. **The overlap lock protects nothing, measured.** Two concurrent activations of a task with
+   `OverlapPolicy.FORBID` both ran to completion. `ProcessLocalOverlapLock` is now a test
+   double; production wires `NoOverlapProtection`, which grants and logs that it granted,
+   because an honest absence beats a lock that looks real in a code review.
+2. **The runtime reads its revision from the database before it can execute**, so ADR 0024's
+   availability-first policy is currently unimplementable. A cron wrapper must resolve its
+   revision from locally deployed assets.
+3. **Persistence failures leak 43 lines of traceback** including filesystem paths, violating
+   the API and database standards. The exit code is correct at 1, so cron sees the failure.
+
+Changes made: the five misleading docstrings, the lock demotion, and `activation_policy` on
+the revision (schema 1.1, defaulting to `require_control_state`). No Wave 3 capability was
+deleted.
+
+**Deferred deliberately:** renaming `Task` to `Capability`. The concepts are right and only
+the labels lag; renaming now would touch every module, the storage schema, and the published
+JSON Schema, and would collide with R2 adding fields to the same classes. Revisit after R2.
+
 ---
 
 ### R2 — Managed cron artefact vertical slice
@@ -167,7 +197,14 @@ activate, inspect the outcome.
   read, write, and read-back verification.
 - **Durable claim capability** (ADR 0023): one primitive, with the scheduled-overlap policy.
   This wave delivers it, because cron-backed activation cannot be called overlap-safe
-  without it.
+  without it — R1 measured two concurrent activations both running.
+- **Locally resolvable revisions** (R1 Finding 2). A cron wrapper must learn what to run, and
+  its own activation policy, from a locally deployed artefact — the task package or a
+  snapshot written at apply time. The database records; it does not decide. Without this,
+  ADR 0024's availability-first mode cannot be implemented at all.
+- **Persistence errors wrapped at the boundary** (R1 Finding 3). Translate SQLAlchemy
+  failures into the error taxonomy so an operator with a down database sees an explanation,
+  not a traceback with filesystem paths.
 - Activation policy enforcement (ADR 0024), including the local journal path and its
   reconciliation.
 - A short-lived wrapper command that cron invokes.
